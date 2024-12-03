@@ -1,77 +1,56 @@
 ﻿using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
 using TeleSales.Core.Dto.AUTH;
-using TeleSales.Core.Dto.User;
-using TeleSales.Core.Interfaces.Auth;
 using TeleSales.Core.Response;
+using TeleSales.Core.Helpers;
 using TeleSales.DataProvider.Context;
-using TeleSales.DataProvider.Entities;
+using TeleSales.Core.Interfaces.Auth;
 
-namespace TeleSales.Core.Services.AUTH;
-
-public class AuthService : IAuthService
+namespace TeleSales.Core.Services.AUTH
 {
-    private readonly ApplicationDbContext _db;
-    public AuthService(ApplicationDbContext db)
+    public class AuthService : IAuthService
     {
-        _db = db;
-    }
-    public async Task<BaseResponse<string>> LogIn(AuthDto dto)
-    {
-        var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
-
-        if (user == null || user.isDeleted)
+        private readonly ApplicationDbContext _db;
+        public AuthService(ApplicationDbContext db)
         {
-            return new BaseResponse<string>
-            (
-                data: null,
-                success: false,
-                message: "Invalid email or password"
-            );
+            _db = db;
         }
 
-        if (user.Password != dto.Password)
+        public async Task<BaseResponse<string>> LogIn(AuthDto dto)
         {
-            return new BaseResponse<string>
-            (
-                data: null,
-                success: false,
-                message: "Invalid email or password"
-            );
-        }
+            // Find user by email
+            var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && !u.isDeleted);
 
-        var token = GenerateJwtToken(user);
-
-        return new BaseResponse<string>
-        (
-            data: token,
-            success: true,
-            message: "Login successful"
-        );
-    }
-
-
-
-    private string GenerateJwtToken(Users user)
-    {
-        var tokenHandler = new JwtSecurityTokenHandler();
-        var key = Encoding.ASCII.GetBytes("77BD25DB-C4D1-46EE-97F9-6847892262C0");
-
-        var tokenDescriptor = new SecurityTokenDescriptor
-        {
-            Subject = new ClaimsIdentity(new[]
+            if (user == null || user.isDeleted)
             {
-            new Claim(ClaimTypes.Name, user.id.ToString()),
-            new Claim(ClaimTypes.Email, user.Email)
-        }),
-            Expires = DateTime.UtcNow.AddHours(1),
-            SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-        };
+                return new BaseResponse<string>(
+                    data: null,
+                    success: false,
+                    message: "Invalid email or password"
+                );
+            }
 
-        var token = tokenHandler.CreateToken(tokenDescriptor);
-        return tokenHandler.WriteToken(token);
+            // Check if password matches
+            if (user.Password != dto.Password)
+            {
+                return new BaseResponse<string>(
+                    data: null,
+                    success: false,
+                    message: "Invalid email or password"
+                );
+            }
+
+            // Set token expiration based on RememberMe flag
+            var tokenExpiration = dto.RememberMe ? TimeSpan.FromDays(365 * 100) : TimeSpan.FromDays(1);
+
+            // Generate JWT token
+            var jwtHelper = new GenerateJwtHelper();
+            var token = jwtHelper.GenerateJwtToken(user, tokenExpiration);
+
+            return new BaseResponse<string>(
+                data: token,
+                success: true,
+                message: "Login successful"
+            );
+        }
     }
 }

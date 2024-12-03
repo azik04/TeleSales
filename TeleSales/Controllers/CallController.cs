@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using TeleSales.Core.Dto.Call;
 using TeleSales.Core.Interfaces.Call;
 
@@ -20,6 +21,7 @@ public class CallController : ControllerBase
     /// <param name="file">The Excel file containing call data</param>
     /// <returns>A response with the imported call data or error message</returns>
     [HttpPost("import")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> ImportFromExcel(IFormFile file, long kanalId)
     {
         if (file == null || file.Length == 0)
@@ -42,6 +44,7 @@ public class CallController : ControllerBase
     /// <param name="kanalId">The channel ID to filter calls</param>
     /// <returns>The Excel file containing the exported call data</returns>
     [HttpGet("ExportExcel")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> ExportToExcelAsync(long kanalId)
     {
         try
@@ -68,6 +71,7 @@ public class CallController : ControllerBase
     /// <param name="kanalId">The channel ID to filter calls</param>
     /// <returns>The Pdf file containing the exported call data</returns>
     [HttpGet("ExportPdf")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> ExportToPdfAsync(long kanalId)
     {
         try
@@ -94,6 +98,7 @@ public class CallController : ControllerBase
     /// <param name="kanalId">The channel to which the call belongs</param>
     /// <returns>A response with the created call data or an error message</returns>
     [HttpPost]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> Create(CreateCallDto dto, long kanalId)
     {
         var res = await _service.Create(dto);
@@ -111,6 +116,7 @@ public class CallController : ControllerBase
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of calls associated with the given channel</returns>
     [HttpGet("{kanalId}/Kanal")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> GetAllByKanal(long kanalId, int pageNumber, int pageSize)
     {
         var res = await _service.GetAllByKanal(kanalId, pageNumber, pageSize);
@@ -128,6 +134,7 @@ public class CallController : ControllerBase
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of calls that are not excluded</returns>
     [HttpGet("NotExcluded")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize)
     {
         var res = await _service.GetAllNotExcluded(kanalId, pageNumber, pageSize);
@@ -145,6 +152,7 @@ public class CallController : ControllerBase
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of excluded calls</returns>
     [HttpGet("Excluded")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
     {
         var res = await _service.GetAllExcluded(kanalId, pageNumber, pageSize);
@@ -163,6 +171,7 @@ public class CallController : ControllerBase
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of calls by channel and user</returns>
     [HttpGet("{kanalId}/Kanal/User/{userId}")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> GetAllByKanalAndUser(long kanalId, long userId, int pageNumber, int pageSize)
     {
         var res = await _service.GetAllByKanalAndUser(kanalId, userId, pageNumber, pageSize);
@@ -177,6 +186,7 @@ public class CallController : ControllerBase
     /// </summary>
     /// <returns>A random call from the database</returns>
     [HttpGet("Random")]
+    [Authorize(Policy = "User")]
     public async Task<IActionResult> GetRandomCall()
     {
         var res = await _service.GetRandomCall();
@@ -194,6 +204,8 @@ public class CallController : ControllerBase
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of calls that match the search query</returns>
     [HttpGet("Search")]
+    [Authorize(Policy = "User")]
+
     public async Task<IActionResult> FindAsync(string query, int pageNumber, int pageSize)
     {
         var res = await _service.FindAsync(query, pageNumber, pageSize);
@@ -209,6 +221,8 @@ public class CallController : ControllerBase
     /// <param name="id">The call ID</param>
     /// <returns>The call details if found</returns>
     [HttpGet("{id}")]
+    [Authorize(Policy = "User")]
+
     public async Task<IActionResult> GetById(long id)
     {
         var res = await _service.GetById(id);
@@ -225,6 +239,8 @@ public class CallController : ControllerBase
     /// <param name="dto">The updated call details</param>
     /// <returns>The updated call data or an error message</returns>
     [HttpPut("{id}")]
+    [Authorize(Policy = "User")]
+
     public async Task<IActionResult> Update(long id, UpdateCallDto dto)
     {
         var res = await _service.Update(id, dto);
@@ -241,6 +257,8 @@ public class CallController : ControllerBase
     /// <param name="dto">The details for excluding the call</param>
     /// <returns>The excluded call or an error message</returns>
     [HttpPut("Exclude/{id}")]
+    [Authorize(Policy = "User")]
+
     public async Task<IActionResult> Exclude(long id, ExcludeCallDto dto)
     {
         var res = await _service.Exclude(id, dto);
@@ -256,6 +274,8 @@ public class CallController : ControllerBase
     /// <param name="id">The call ID</param>
     /// <returns>A success message or an error message</returns>
     [HttpDelete("{id}")]
+    [Authorize(Policy = "User")]
+
     public async Task<IActionResult> Remove(long id)
     {
         var res = await _service.Remove(id);

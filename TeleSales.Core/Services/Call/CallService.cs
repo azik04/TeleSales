@@ -83,7 +83,6 @@ public class CallService : ICallService
                     Phone = c.Phone,
                     UserId = c.UserId,
                     Note = c.Note,
-                    IsExcluded = c.IsExcluded,
                     LastStatusUpdate = c.LastStatusUpdate,
                     CreateAt = DateTime.UtcNow,
                 }).ToList();
@@ -105,9 +104,11 @@ public class CallService : ICallService
     {
         try
         {
-            // Retrieve data from the database
+            var thresholdDate = DateTime.UtcNow.AddDays(-7);
+
             var calls = await _db.Calls
-                .Where(c => c.KanalId == kanalId /*&& c.IsExcluded*/)
+                .Where(x => x.KanalId == kanalId && !x.isDeleted &&
+                (x.LastStatusUpdate != null && x.LastStatusUpdate.Value.ToUniversalTime() >= thresholdDate))
                 .ToListAsync();
 
             if (!calls.Any())
@@ -115,7 +116,11 @@ public class CallService : ICallService
                 throw new Exception("No calls found for the specified channel.");
             }
 
-            // Set up the Excel package
+            foreach(var item in calls)
+            {
+                item.User = await _db.Users.SingleOrDefaultAsync(x => x.id == item.UserId);
+            }
+
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
             using (var package = new ExcelPackage())
             {
@@ -145,7 +150,9 @@ public class CallService : ICallService
                     worksheet.Cells[row + 2, 5].Value = call.Status;
                     worksheet.Cells[row + 2, 6].Value = call.Address;
                     worksheet.Cells[row + 2, 7].Value = call.Phone;
-                    //worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate.ToString("yyyy-MM-dd");
+                    worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate;
+                    worksheet.Cells[row + 2, 8].Value = call.User.FullName;
+                    worksheet.Cells[row + 2, 8].Value = call.LastStatusUpdate;
                 }
 
                 // Auto-fit columns
@@ -167,11 +174,16 @@ public class CallService : ICallService
         {
             QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
-            // Retrieve data from the database
-            var calls = await _db.Calls
-                .Where(c => c.KanalId == kanalId /*&& c.IsExcluded*/)
-                .ToListAsync();
+            var thresholdDate = DateTime.UtcNow.AddDays(-7);
 
+            var calls = await  _db.Calls
+                .Where(x => x.KanalId == kanalId && !x.isDeleted &&
+                (x.LastStatusUpdate != null && x.LastStatusUpdate.Value.ToUniversalTime() >= thresholdDate))
+                .ToListAsync();
+            foreach (var item in calls)
+            {
+                item.User = await _db.Users.SingleOrDefaultAsync(x => x.id == item.id);
+            }
             var kanal = await _db.Kanals.SingleOrDefaultAsync(x => x.id == kanalId);
 
             if (!calls.Any())
@@ -186,18 +198,15 @@ public class CallService : ICallService
                 {
                     page.Margin(30);
 
-                    // Header
                     page.Header()
                         .Text($"Calls Report - Kanal ID: {kanal.Name}")
                         .FontSize(20)
                         .Bold()
                         .AlignCenter();
 
-                    // Table
                     page.Content()
                         .Table(table =>
                         {
-                            // Define columns
                             table.ColumnsDefinition(columns =>
                             {
                                 columns.RelativeColumn(); // Entrepreneur Name
@@ -208,9 +217,10 @@ public class CallService : ICallService
                                 columns.RelativeColumn(); // Address
                                 columns.RelativeColumn(); // Phone
                                 columns.RelativeColumn(); // Permission Start Date
+                                columns.RelativeColumn(); // Excluded User
+                                columns.RelativeColumn(); // Last Status Update
                             });
 
-                            // Header row
                             table.Header(header =>
                             {
                                 header.Cell().Text("Entrepreneur Name").Bold();
@@ -221,6 +231,8 @@ public class CallService : ICallService
                                 header.Cell().Text("Address").Bold();
                                 header.Cell().Text("Phone").Bold();
                                 header.Cell().Text("Permission Start Date").Bold();
+                                header.Cell().Text("User").Bold();
+                                header.Cell().Text("Last Status Update").Bold();
                             });
 
                             // Data rows
@@ -233,7 +245,9 @@ public class CallService : ICallService
                                 table.Cell().Text(call.Status);
                                 table.Cell().Text(call.Address);
                                 table.Cell().Text(call.Phone);
-                                //table.Cell().Text(call.PermissionStartDate.ToDateTime(new TimeOnly(0, 0)).ToString("yyyy-MM-dd"));
+                                table.Cell().Text(call.PermissionStartDate);
+                                table.Cell().Text(call.User.FullName);
+                                table.Cell().Text(call.LastStatusUpdate);
                             }
                         });
                 });
@@ -288,8 +302,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = call.CreateAt,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         };
         return new BaseResponse<GetCallDto>(newCall);
     }
@@ -323,8 +338,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -342,7 +358,12 @@ public class CallService : ICallService
         if (kanalId == 0)
             return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
 
-        var calls = _db.Calls.Where(x => x.KanalId == kanalId && !x.isDeleted && !x.IsExcluded);
+        var thresholdDate = DateTime.UtcNow.AddDays(-7);
+
+        var calls = _db.Calls
+            .Where(x => x.KanalId == kanalId
+                        && !x.isDeleted
+                        && (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate.ToUniversalTime()) && !x.isDone);
 
         var totalCount = await calls.CountAsync();
 
@@ -365,8 +386,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -379,13 +401,18 @@ public class CallService : ICallService
         return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
     }
 
+
     public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
     {
         if (kanalId == 0)
             return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
 
-        var calls = _db.Calls.Where(x => x.KanalId == kanalId && !x.isDeleted && x.IsExcluded);
+        var thresholdDate = DateTime.UtcNow.AddDays(-7);
 
+        var calls = _db.Calls.Where(x => x.KanalId == kanalId 
+                && !x.isDeleted 
+                && (x.LastStatusUpdate != null && x.LastStatusUpdate.Value.ToUniversalTime() >= thresholdDate) && !x.isDone);
+        
         var totalCount = await calls.CountAsync();
 
         calls = calls
@@ -407,8 +434,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -450,10 +478,10 @@ public class CallService : ICallService
             Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
-
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -494,22 +522,18 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         };
         return new BaseResponse<GetCallDto>(newCall);
     }
 
     public async Task<BaseResponse<GetCallDto>> GetRandomCall()
     {
-        var calls = await _db.Calls.Where(c =>
-        !c.isDeleted &&
-        (
-            !c.LastStatusUpdate.HasValue ||
-             c.LastStatusUpdate.Value.AddDays(7) <= DateTime.Now ||
-            !c.IsExcluded  
-        )
-    ).ToListAsync();
+        var thresholdDate = DateTime.UtcNow.AddDays(-7);
+
+        var calls = await _db.Calls.Where(x => !x.isDeleted && (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate.ToUniversalTime())).ToListAsync();
 
         if (!calls.Any())
             return new BaseResponse<GetCallDto>(null, false, "No eligible calls available.");
@@ -539,8 +563,9 @@ public class CallService : ICallService
             Phone = selectedCall.Phone,
             UserId = selectedCall.UserId,
             Note = selectedCall.Note,
-            IsExcluded = selectedCall.IsExcluded,
             LastStatusUpdate = selectedCall.LastStatusUpdate,
+            Conclusion = selectedCall.Conclusion,
+            isDone = selectedCall.isDone,
         };
 
         _cachedCalls[selectedCall.KanalId] = dto;
@@ -584,8 +609,9 @@ public class CallService : ICallService
                 UserId = c.UserId,
                 CreateAt = DateTime.UtcNow,
                 Note = c.Note,
-                IsExcluded = c.IsExcluded,
                 LastStatusUpdate = c.LastStatusUpdate,
+                Conclusion = c.Conclusion,
+                isDone = c.isDone,
             })
             .ToListAsync();
 
@@ -632,8 +658,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
@@ -678,8 +705,9 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
@@ -696,9 +724,11 @@ public class CallService : ICallService
 
 
         call.UserId = dto.UserId;
-        call.IsExcluded = true;
         call.LastStatusUpdate = DateTime.Now;
         call.Note = dto.Note;
+        call.Conclusion = dto.Conclusion;
+        if(call.Conclusion == "Razılaşdı")
+            call.isDone = true;
 
         _db.Calls.Update(call);
         await _db.SaveChangesAsync();
@@ -724,14 +754,11 @@ public class CallService : ICallService
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
             Note = call.Note,
-            IsExcluded = call.IsExcluded,
             LastStatusUpdate = call.LastStatusUpdate,
-            
+            Conclusion = call.Conclusion,
+            isDone = call.isDone,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
     }
-
-   
-
 }

@@ -1,4 +1,6 @@
-﻿namespace TeleSales.Core.Dto.User;
+﻿using TeleSales.DataProvider.Enums;
+
+namespace TeleSales.Core.Dto.User;
 
 public class CreateUserDto
 {
@@ -6,4 +8,5 @@ public class CreateUserDto
     public string LastName { get; set; }
     public string Email { get; set; }
     public string Password { get; set; }
+
 }

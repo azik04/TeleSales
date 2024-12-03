@@ -16,9 +16,11 @@ public class GetCallDto
     public string PermissionNumber { get; set; } // İcazə nömrəsi
     public string Address { get; set; } // Ünvan
     public string Phone { get; set; }    // Əlaqə məlumatları
+    public bool isDone { get; set; }
 
+    public string? Conclusion { get; set; }
     public string? Note { get; set; }
     public long? UserId { get; set; }
     public DateTime? LastStatusUpdate { get; set; } // Tracks when the status was last updated
-    public bool IsExcluded { get; set; }
+
 }

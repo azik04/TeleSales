@@ -29,6 +29,20 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(c => c.UserId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        modelBuilder.Entity<Users>(entity =>
+        {
+            entity.HasData(new Users
+            {
+                Email = "admin@adra.gov.az",
+                FullName = "Admin",
+                Password = "Admin123",
+                id = 1,
+                Role = Enums.Role.Admin,
+                CreateAt = DateTime.Now,
+                isDeleted = false,
+            });
+        });
+
         base.OnModelCreating(modelBuilder);
     }
 

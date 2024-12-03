@@ -19,9 +19,5 @@ public class UpdateUserDtoValidation : AbstractValidator<UpdateUserDto>
         RuleFor(x => x.LastName)
             .NotEmpty().WithMessage("Soyad tələb olunur.") // Исправлено сообщение
             .Length(1, 20).WithMessage("Soyad 1-dən 20 simvola qədər olmalıdır."); // Исправлено сообщение
-
-        RuleFor(x => x.Password)
-            .NotEmpty().WithMessage("Şifrə tələb olunur.")
-            .Length(1, 20).WithMessage("Şifrə 1-dən 20 simvola qədər olmalıdır.");
     }
 }

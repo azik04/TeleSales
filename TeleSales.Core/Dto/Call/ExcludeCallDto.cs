@@ -6,5 +6,6 @@ public class ExcludeCallDto
     public string? Note { get; set; }
     public long? UserId { get; set; }
     public DateTime? LastStatusUpdate { get; set; } // Tracks when the status was last updated
-    public bool IsExcluded { get; set; }
+    public string? Conclusion { get; set; }
+
 }

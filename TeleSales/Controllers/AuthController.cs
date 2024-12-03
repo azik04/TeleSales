@@ -23,10 +23,10 @@ public class AccountController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> LogIn(AuthDto dto)
     {
-        //if (!ModelState.IsValid) 
-        //    return BadRequest(ModelState);
-
         var res = await _service.LogIn(dto);
-        return Ok(res);
+        if (res.Success)
+            return Ok(res);
+
+        return BadRequest(res);
     }
 }

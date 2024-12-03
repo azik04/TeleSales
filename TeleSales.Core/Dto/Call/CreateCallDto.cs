@@ -13,6 +13,5 @@ public class CreateCallDto
     public string PermissionNumber { get; set; } // İcazə nömrəsi
     public string Address { get; set; } // Ünvan
     public string Phone {  get; set; }
-    public bool IsExcluded { get; set; }
 }
 

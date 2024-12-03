@@ -6,5 +6,5 @@ public class Kanals : Base
 {
     public string Name { get; set; } 
 
-    public virtual ICollection<Calls> Calls { get; set; } = new List<Calls>();
+    public virtual ICollection<Calls> Calls { get; set; }
 }
