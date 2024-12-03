@@ -22,12 +22,12 @@ public class ApplicationDbContext : DbContext
             .HasForeignKey(c => c.KanalId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        // Calls -> Users (Many-to-One)
+        // Calls -> Users (Many-to-One, optional relationship)
         modelBuilder.Entity<Calls>()
             .HasOne(c => c.User)
             .WithMany(u => u.Calls)
             .HasForeignKey(c => c.UserId)
-            .OnDelete(DeleteBehavior.Restrict); 
+            .OnDelete(DeleteBehavior.Restrict);
 
         base.OnModelCreating(modelBuilder);
     }

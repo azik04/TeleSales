@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
+using QuestPDF.Fluent;
 using TeleSales.Core.Dto.Call;
 using TeleSales.Core.Interfaces.Call;
 using TeleSales.Core.Response;
@@ -10,6 +11,8 @@ namespace TeleSales.Core.Services.Call;
 
 public class CallService : ICallService
 {
+    private static readonly Dictionary<long, GetCallDto> _cachedCalls = new();
+    private static readonly TimeSpan CallHoldDuration = TimeSpan.FromDays(7);
     private readonly ApplicationDbContext _db;
     public CallService(ApplicationDbContext db)
     {
@@ -18,12 +21,14 @@ public class CallService : ICallService
 
 
 
-    public async Task<BaseResponse<ICollection<GetCallDto>>> ImportFromExcelAsync(Stream excelFileStream)
+    public async Task<BaseResponse<ICollection<GetCallDto>>> ImportFromExcelAsync(Stream excelFileStream, long kanalId)
     {
         var response = new BaseResponse<ICollection<GetCallDto>>(new List<GetCallDto>());
 
         try
         {
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+
             using (var package = new ExcelPackage(excelFileStream))
             {
                 var worksheet = package.Workbook.Worksheets[0];
@@ -44,22 +49,19 @@ public class CallService : ICallService
                 for (int row = 2; row <= rows; row++)
                 {
                     var user = users[userIndex];
-                    userIndex = (userIndex + 1) % userCount; 
+                    userIndex = (userIndex + 1) % userCount;
 
                     var call = new Calls
                     {
-                        Status = worksheet.Cells[row, 1].Text,
-                        AcquisitionDate = DateOnly.Parse(worksheet.Cells[row, 2].Text),
-                        KanalId = long.Parse(worksheet.Cells[row, 3].Text),
-                        EntrepreneurName = worksheet.Cells[row, 4].Text,
-                        LegalName = worksheet.Cells[row, 5].Text,
-                        VOEN = worksheet.Cells[row, 6].Text,
-                        PermissionStartDate = DateOnly.Parse(worksheet.Cells[row, 7].Text),
-                        PermissionNumber = worksheet.Cells[row, 8].Text,
-                        Address = worksheet.Cells[row, 9].Text,
-                        ContactDetails = worksheet.Cells[row, 10].Text,
-                        Result = worksheet.Cells[row, 11].Text,
-                        UserId = user.id 
+                        EntrepreneurName = worksheet.Cells[row, 1].Text,
+                        LegalName = worksheet.Cells[row, 2].Text,
+                        VOEN = worksheet.Cells[row, 3].Text,
+                        PermissionNumber = worksheet.Cells[row, 4].Text,
+                        Status = worksheet.Cells[row, 5].Text,
+                        Address = worksheet.Cells[row, 6].Text,
+                        Phone = worksheet.Cells[row, 7].Text,
+                        KanalId = kanalId,
+                        PermissionStartDate = DateOnly.FromDateTime(DateTime.Now),
                     };
 
                     calls.Add(call);
@@ -71,7 +73,6 @@ public class CallService : ICallService
                 var getCallDtos = calls.Select(c => new GetCallDto
                 {
                     Status = c.Status,
-                    AcquisitionDate = c.AcquisitionDate,
                     KanalId = c.KanalId,
                     EntrepreneurName = c.EntrepreneurName,
                     LegalName = c.LegalName,
@@ -79,9 +80,12 @@ public class CallService : ICallService
                     PermissionStartDate = c.PermissionStartDate,
                     PermissionNumber = c.PermissionNumber,
                     Address = c.Address,
-                    ContactDetails = c.ContactDetails,
-                    Result = c.Result,
-                    UserId = c.UserId
+                    Phone = c.Phone,
+                    UserId = c.UserId,
+                    Note = c.Note,
+                    IsExcluded = c.IsExcluded,
+                    LastStatusUpdate = c.LastStatusUpdate,
+                    CreateAt = DateTime.UtcNow,
                 }).ToList();
 
                 response.Data = getCallDtos;
@@ -97,6 +101,150 @@ public class CallService : ICallService
     }
 
 
+    public async Task<byte[]> ExportToExcelAsync(long kanalId)
+    {
+        try
+        {
+            // Retrieve data from the database
+            var calls = await _db.Calls
+                .Where(c => c.KanalId == kanalId /*&& c.IsExcluded*/)
+                .ToListAsync();
+
+            if (!calls.Any())
+            {
+                throw new Exception("No calls found for the specified channel.");
+            }
+
+            // Set up the Excel package
+            ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+            using (var package = new ExcelPackage())
+            {
+                // Add a worksheet
+                var worksheet = package.Workbook.Worksheets.Add("Calls");
+
+                // Define header row
+                var headers = new[]
+                {
+                "Entrepreneur Name", "Legal Name", "VOEN", "Permission Number",
+                "Status", "Address", "Phone", "Permission Start Date"
+            };
+
+                for (int i = 0; i < headers.Length; i++)
+                {
+                    worksheet.Cells[1, i + 1].Value = headers[i];
+                }
+
+                // Populate rows with data
+                for (int row = 0; row < calls.Count; row++)
+                {
+                    var call = calls[row];
+                    worksheet.Cells[row + 2, 1].Value = call.EntrepreneurName;
+                    worksheet.Cells[row + 2, 2].Value = call.LegalName;
+                    worksheet.Cells[row + 2, 3].Value = call.VOEN;
+                    worksheet.Cells[row + 2, 4].Value = call.PermissionNumber;
+                    worksheet.Cells[row + 2, 5].Value = call.Status;
+                    worksheet.Cells[row + 2, 6].Value = call.Address;
+                    worksheet.Cells[row + 2, 7].Value = call.Phone;
+                    //worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate.ToString("yyyy-MM-dd");
+                }
+
+                // Auto-fit columns
+                worksheet.Cells[worksheet.Dimension.Address].AutoFitColumns();
+
+                // Return the file as a byte array
+                return package.GetAsByteArray();
+            }
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"An error occurred while exporting data: {ex.Message}");
+        }
+    }
+
+    public async Task<byte[]> ExportToPdfAsync(long kanalId)
+    {
+        try
+        {
+            QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+
+            // Retrieve data from the database
+            var calls = await _db.Calls
+                .Where(c => c.KanalId == kanalId /*&& c.IsExcluded*/)
+                .ToListAsync();
+
+            var kanal = await _db.Kanals.SingleOrDefaultAsync(x => x.id == kanalId);
+
+            if (!calls.Any())
+            {
+                throw new Exception("No calls found for the specified channel.");
+            }
+
+            // Generate PDF using QuestPDF
+            return QuestPDF.Fluent.Document.Create(container =>
+            {
+                container.Page(page =>
+                {
+                    page.Margin(30);
+
+                    // Header
+                    page.Header()
+                        .Text($"Calls Report - Kanal ID: {kanal.Name}")
+                        .FontSize(20)
+                        .Bold()
+                        .AlignCenter();
+
+                    // Table
+                    page.Content()
+                        .Table(table =>
+                        {
+                            // Define columns
+                            table.ColumnsDefinition(columns =>
+                            {
+                                columns.RelativeColumn(); // Entrepreneur Name
+                                columns.RelativeColumn(); // Legal Name
+                                columns.RelativeColumn(); // VOEN
+                                columns.RelativeColumn(); // Permission Number
+                                columns.RelativeColumn(); // Status
+                                columns.RelativeColumn(); // Address
+                                columns.RelativeColumn(); // Phone
+                                columns.RelativeColumn(); // Permission Start Date
+                            });
+
+                            // Header row
+                            table.Header(header =>
+                            {
+                                header.Cell().Text("Entrepreneur Name").Bold();
+                                header.Cell().Text("Legal Name").Bold();
+                                header.Cell().Text("VOEN").Bold();
+                                header.Cell().Text("Permission Number").Bold();
+                                header.Cell().Text("Status").Bold();
+                                header.Cell().Text("Address").Bold();
+                                header.Cell().Text("Phone").Bold();
+                                header.Cell().Text("Permission Start Date").Bold();
+                            });
+
+                            // Data rows
+                            foreach (var call in calls)
+                            {
+                                table.Cell().Text(call.EntrepreneurName);
+                                table.Cell().Text(call.LegalName);
+                                table.Cell().Text(call.VOEN);
+                                table.Cell().Text(call.PermissionNumber);
+                                table.Cell().Text(call.Status);
+                                table.Cell().Text(call.Address);
+                                table.Cell().Text(call.Phone);
+                                //table.Cell().Text(call.PermissionStartDate.ToDateTime(new TimeOnly(0, 0)).ToString("yyyy-MM-dd"));
+                            }
+                        });
+                });
+            }).GeneratePdf();
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"An error occurred while exporting data to PDF: {ex.Message}");
+        }
+    }
+
     public async Task<BaseResponse<GetCallDto>> Create(CreateCallDto dto)
     {
         var user = await _db.Users
@@ -110,17 +258,14 @@ public class CallService : ICallService
         var call = new Calls()
         {
             Status = dto.Status,
-            AcquisitionDate = dto.AcquisitionDate,
             KanalId = dto.KanalId,
             EntrepreneurName = dto.EntrepreneurName,
             LegalName = dto.LegalName,
             VOEN = dto.VOEN,
-            PermissionStartDate = dto.PermissionStartDate,
+            PermissionStartDate = DateOnly.FromDateTime(DateTime.Now),
             PermissionNumber = dto.PermissionNumber,
             Address = dto.Address,
-            ContactDetails = dto.ContactDetails,
-            Result = dto.Result,
-            UserId = user.id, 
+            Phone = dto.Phone,
             CreateAt = DateTime.UtcNow,
         };
 
@@ -132,7 +277,6 @@ public class CallService : ICallService
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -140,10 +284,12 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = call.CreateAt,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         };
         return new BaseResponse<GetCallDto>(newCall);
     }
@@ -155,6 +301,9 @@ public class CallService : ICallService
             return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
 
         var calls = _db.Calls.Where(x => x.KanalId == kanalId && !x.isDeleted);
+
+        var totalCount = await calls.CountAsync();
+
         calls = calls
            .Skip((pageNumber - 1) * pageSize)
            .Take(pageSize);
@@ -163,7 +312,6 @@ public class CallService : ICallService
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -171,16 +319,102 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
         {
             Items = callDtos,
-            TotalCount = callDtos.Count,
+            TotalCount = totalCount,
+            PageSize = pageSize,
+            CurrentPage = pageNumber,
+        };
+        return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
+    }
+
+    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize)
+    {
+        if (kanalId == 0)
+            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
+
+        var calls = _db.Calls.Where(x => x.KanalId == kanalId && !x.isDeleted && !x.IsExcluded);
+
+        var totalCount = await calls.CountAsync();
+
+        calls = calls
+           .Skip((pageNumber - 1) * pageSize)
+           .Take(pageSize);
+        var callDtos = calls.Select(call => new GetCallDto
+        {
+            id = call.id,
+            isDelete = call.isDeleted,
+            Status = call.Status,
+            KanalId = call.KanalId,
+            EntrepreneurName = call.EntrepreneurName,
+            LegalName = call.LegalName,
+            VOEN = call.VOEN,
+            PermissionStartDate = call.PermissionStartDate,
+            PermissionNumber = call.PermissionNumber,
+            Address = call.Address,
+            Phone = call.Phone,
+            UserId = call.UserId,
+            CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
+        }).ToList();
+
+        var pagedResult = new PagedResponse<GetCallDto>
+        {
+            Items = callDtos,
+            TotalCount = totalCount,
+            PageSize = pageSize,
+            CurrentPage = pageNumber,
+        };
+        return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
+    }
+
+    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
+    {
+        if (kanalId == 0)
+            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
+
+        var calls = _db.Calls.Where(x => x.KanalId == kanalId && !x.isDeleted && x.IsExcluded);
+
+        var totalCount = await calls.CountAsync();
+
+        calls = calls
+           .Skip((pageNumber - 1) * pageSize)
+           .Take(pageSize);
+        var callDtos = calls.Select(call => new GetCallDto
+        {
+            id = call.id,
+            isDelete = call.isDeleted,
+            Status = call.Status,
+            KanalId = call.KanalId,
+            EntrepreneurName = call.EntrepreneurName,
+            LegalName = call.LegalName,
+            VOEN = call.VOEN,
+            PermissionStartDate = call.PermissionStartDate,
+            PermissionNumber = call.PermissionNumber,
+            Address = call.Address,
+            Phone = call.Phone,
+            UserId = call.UserId,
+            CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
+        }).ToList();
+
+        var pagedResult = new PagedResponse<GetCallDto>
+        {
+            Items = callDtos,
+            TotalCount = totalCount,
             PageSize = pageSize,
             CurrentPage = pageNumber,
         };
@@ -190,19 +424,22 @@ public class CallService : ICallService
     public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByKanalAndUser(long kanalId, long userId, int pageNumber, int pageSize)
     {
         if (kanalId == 0 || userId == 0)
-            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId or UserId cant be 0.");
+            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId or UserId can't be 0.");
 
-        var calls = _db.Calls.Where(x => x.KanalId == kanalId && x.UserId == userId && !x.isDeleted);
-        calls = calls
-           .Skip((pageNumber - 1) * pageSize)
-           .Take(pageSize);
+        var query = _db.Calls.Where(x => x.KanalId == kanalId && x.UserId == userId && !x.isDeleted);
+
+        var totalCount = await query.CountAsync();
+
+        var calls = await query
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
         var callDtos = calls.Select(call => new GetCallDto
         {
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -210,22 +447,26 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
+
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
         {
             Items = callDtos,
-            TotalCount = callDtos.Count,
+            TotalCount = totalCount, 
             PageSize = pageSize,
             CurrentPage = pageNumber,
         };
 
         return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
     }
+
 
     public async Task<BaseResponse<GetCallDto>> GetById(long id)
     {
@@ -242,7 +483,6 @@ public class CallService : ICallService
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -250,14 +490,116 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         };
-
         return new BaseResponse<GetCallDto>(newCall);
     }
+
+    public async Task<BaseResponse<GetCallDto>> GetRandomCall()
+    {
+        var calls = await _db.Calls.Where(c =>
+        !c.isDeleted &&
+        (
+            !c.LastStatusUpdate.HasValue ||
+             c.LastStatusUpdate.Value.AddDays(7) <= DateTime.Now ||
+            !c.IsExcluded  
+        )
+    ).ToListAsync();
+
+        if (!calls.Any())
+            return new BaseResponse<GetCallDto>(null, false, "No eligible calls available.");
+
+        if (_cachedCalls.TryGetValue(calls.First().KanalId, out var cachedCall))
+            return new BaseResponse<GetCallDto>(cachedCall);
+
+        var random = new Random();
+        var selectedCall = calls.OrderBy(_ => random.Next()).FirstOrDefault();
+
+        if (selectedCall == null)
+            return new BaseResponse<GetCallDto>(null, false, "No call selected.");
+
+        var dto = new GetCallDto
+        {
+            id = selectedCall.id,
+            isDelete = selectedCall.isDeleted,
+            CreateAt = selectedCall.CreateAt,
+            Status = selectedCall.Status,
+            KanalId = selectedCall.KanalId,
+            EntrepreneurName = selectedCall.EntrepreneurName,
+            LegalName = selectedCall.LegalName,
+            VOEN = selectedCall.VOEN,
+            PermissionStartDate = selectedCall.PermissionStartDate,
+            PermissionNumber = selectedCall.PermissionNumber,
+            Address = selectedCall.Address,
+            Phone = selectedCall.Phone,
+            UserId = selectedCall.UserId,
+            Note = selectedCall.Note,
+            IsExcluded = selectedCall.IsExcluded,
+            LastStatusUpdate = selectedCall.LastStatusUpdate,
+        };
+
+        _cachedCalls[selectedCall.KanalId] = dto;
+
+        return new BaseResponse<GetCallDto>(dto);
+    }
+
+
+
+
+    public async Task<BaseResponse<PagedResponse<GetCallDto>>> FindAsync(string query, int pageNumber, int pageSize)
+    {
+        var callsQuery = _db.Set<Calls>().AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(query))
+        {
+            callsQuery = callsQuery.Where(c =>
+                c.EntrepreneurName.Contains(query) ||
+                c.LegalName.Contains(query) ||
+                c.VOEN.Contains(query) ||
+                c.Phone.Contains(query));
+        }
+
+        var totalItems = await callsQuery.CountAsync();
+        var calls = await callsQuery
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .Select(c => new GetCallDto
+            {
+                id = c.id,
+                isDelete = c.isDeleted,
+                Status = c.Status,
+                KanalId = c.KanalId,
+                EntrepreneurName = c.EntrepreneurName,
+                LegalName = c.LegalName,
+                VOEN = c.VOEN,
+                PermissionStartDate = c.PermissionStartDate,
+                PermissionNumber = c.PermissionNumber,
+                Address = c.Address,
+                Phone = c.Phone,
+                UserId = c.UserId,
+                CreateAt = DateTime.UtcNow,
+                Note = c.Note,
+                IsExcluded = c.IsExcluded,
+                LastStatusUpdate = c.LastStatusUpdate,
+            })
+            .ToListAsync();
+
+        var response = new PagedResponse<GetCallDto>
+        {
+            Items = calls,
+            TotalCount = totalItems,
+            CurrentPage = pageNumber,
+            PageSize = pageSize
+        };
+
+        return new BaseResponse<PagedResponse<GetCallDto>>(response);
+    }
+
 
     public async Task<BaseResponse<GetCallDto>> Remove(long id)
     {
@@ -279,7 +621,6 @@ public class CallService : ICallService
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -287,10 +628,12 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
@@ -309,16 +652,12 @@ public class CallService : ICallService
 
 
         call.Status = dto.Status;
-        call.AcquisitionDate = dto.AcquisitionDate;
         call.EntrepreneurName = dto.EntrepreneurName;
         call.LegalName = dto.LegalName;
         call.VOEN = dto.VOEN;
-        call.PermissionStartDate = dto.PermissionStartDate;
         call.PermissionNumber = dto.PermissionNumber;
         call.Address = dto.Address;
-        call.ContactDetails = dto.ContactDetails;
-        call.Result = dto.Result;
-        call.UserId = dto.UserId;
+        call.Phone = dto.Phone;
 
         _db.Calls.Update(call);
         await _db.SaveChangesAsync();
@@ -328,7 +667,6 @@ public class CallService : ICallService
             id = call.id,
             isDelete = call.isDeleted,
             Status = call.Status,
-            AcquisitionDate = call.AcquisitionDate,
             KanalId = call.KanalId,
             EntrepreneurName = call.EntrepreneurName,
             LegalName = call.LegalName,
@@ -336,12 +674,64 @@ public class CallService : ICallService
             PermissionStartDate = call.PermissionStartDate,
             PermissionNumber = call.PermissionNumber,
             Address = call.Address,
-            ContactDetails = call.ContactDetails,
-            Result = call.Result,
+            Phone = call.Phone,
             UserId = call.UserId,
             CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
     }
+    public async Task<BaseResponse<GetCallDto>> Exclude(long id, ExcludeCallDto dto)
+    {
+        if (id == 0)
+            return new BaseResponse<GetCallDto>(null, false, "Id cant be 0.");
+
+        var call = await _db.Calls.SingleOrDefaultAsync(x => x.id == id && !x.isDeleted);
+
+        if (call == null)
+            return new BaseResponse<GetCallDto>(null, false, "Call cant be NULL.");
+
+
+        call.UserId = dto.UserId;
+        call.IsExcluded = true;
+        call.LastStatusUpdate = DateTime.Now;
+        call.Note = dto.Note;
+
+        _db.Calls.Update(call);
+        await _db.SaveChangesAsync();
+
+        if (_cachedCalls.ContainsKey(call.KanalId))
+        {
+            _cachedCalls.Remove(call.KanalId);
+        }
+
+        var newCall = new GetCallDto()
+        {
+            id = call.id,
+            isDelete = call.isDeleted,
+            Status = call.Status,
+            KanalId = call.KanalId,
+            EntrepreneurName = call.EntrepreneurName,
+            LegalName = call.LegalName,
+            VOEN = call.VOEN,
+            PermissionStartDate = call.PermissionStartDate,
+            PermissionNumber = call.PermissionNumber,
+            Address = call.Address,
+            Phone = call.Phone,
+            UserId = call.UserId,
+            CreateAt = DateTime.UtcNow,
+            Note = call.Note,
+            IsExcluded = call.IsExcluded,
+            LastStatusUpdate = call.LastStatusUpdate,
+            
+        };
+
+        return new BaseResponse<GetCallDto>(newCall);
+    }
+
+   
+
 }

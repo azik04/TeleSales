@@ -10,18 +10,23 @@ using TeleSales.Core.Services.User;
 using TeleSales.DataProvider.Context;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using TeleSales.Core.Validation.Auth;
+using TeleSales.Core.Dto.Call;
+using TeleSales.Core.Validation.Call;
+using TeleSales.Core.Validation.User;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Регистрация FluentValidation
-builder.Services.AddControllers()
-    .AddFluentValidation(fv =>
-    {
-        fv.RegisterValidatorsFromAssemblyContaining<Program>(); // Регистрация валидаторов из сборки, содержащей Program
-    });
+builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddFluentValidationClientsideAdapters();
+builder.Services.AddValidatorsFromAssemblyContaining<AuthDtoValidation>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCallDtoValidation>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateUserDtoValidation>();
 
 var serviceProvider = builder.Services.BuildServiceProvider();
 
@@ -29,6 +34,14 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IKanalService, KanalService>();
 builder.Services.AddScoped<ICallService, CallService>();
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowLocalhost",
+        builder => builder.WithOrigins("http://localhost:3000")
+                          .AllowAnyMethod()
+                          .AllowAnyHeader());
+});
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -45,6 +58,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors("AllowLocalhost");
 
 app.UseAuthentication();
 

@@ -97,7 +97,7 @@ public class UserService : IUserService
         }
 
         user.Email = dto.Email;
-        user.FullName = dto.FirstName + "" + dto.LastName;
+        user.FullName = dto.FirstName + " " + dto.LastName;
         user.Password = dto.Password;
 
         _db.Users.Update(user);

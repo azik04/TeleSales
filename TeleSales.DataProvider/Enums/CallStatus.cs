@@ -2,4 +2,9 @@
 
 public enum CallStatus
 {
+    Razılaşdı,
+    ImtinaEtdi,
+    NömrəSəhvdir,
+    ZəngÇatmır,
+    YenidənZəng
 }

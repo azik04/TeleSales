@@ -8,10 +8,9 @@ public class UpdateCallDtoValidation : AbstractValidator<UpdateCallDto>
     public UpdateCallDtoValidation()
     {
         RuleFor(x => x.Status)
-            .IsInEnum().WithMessage("Status düzgün seçilməlidir.");
+            .NotEmpty().WithMessage("Status tələb olunur.")
+            .Length(1, 100).WithMessage("Status 1-dən 100 simvola qədər olmalıdır.");
 
-        RuleFor(x => x.AcquisitionDate)
-            .NotEmpty().WithMessage("Tapşırığın əldə olunma tarixi tələb olunur.");
 
         RuleFor(x => x.KanalId)
             .GreaterThan(0).WithMessage("Kanal seçilməlidir.");
@@ -39,15 +38,10 @@ public class UpdateCallDtoValidation : AbstractValidator<UpdateCallDto>
             .NotEmpty().WithMessage("Ünvan tələb olunur.")
             .Length(1, 200).WithMessage("Ünvan 1-dən 200 simvola qədər olmalıdır.");
 
-        RuleFor(x => x.ContactDetails)
+        RuleFor(x => x.Phone)
             .NotEmpty().WithMessage("Əlaqə məlumatları tələb olunur.")
             .Length(1, 200).WithMessage("Əlaqə məlumatları 1-dən 200 simvola qədər olmalıdır.");
 
-        RuleFor(x => x.Result)
-            .IsInEnum().WithMessage("Nəticə düzgün seçilməlidir.");
-
-        RuleFor(x => x.UserId)
-            .GreaterThan(0).WithMessage("İstifadəçi seçilməlidir.");
     }
 }
 

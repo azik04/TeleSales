@@ -4,8 +4,7 @@ namespace TeleSales.DataProvider.Entities;
 
 public class Kanals : Base
 {
-    public string Name { get; set; }
+    public string Name { get; set; } 
 
-    public virtual ICollection<Calls> Calls { get; set; } // Navigation property for Calls
+    public virtual ICollection<Calls> Calls { get; set; } = new List<Calls>();
 }
-

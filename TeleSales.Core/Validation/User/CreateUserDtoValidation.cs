@@ -9,7 +9,7 @@ public class CreateUserDtoValidation : AbstractValidator<CreateUserDto>
     {
         RuleFor(x => x.Email)
             .NotEmpty().WithMessage("Email tələb olunur.")
-            .EmailAddress().WithMessage("Düzgün email daxil edin.")
+            //.EmailAddress().WithMessage("Düzgün email daxil edin.")
             .Length(1, 50).WithMessage("Email 1-dən 50 simvola qədər olmalıdır.");
 
         RuleFor(x => x.FirstName)

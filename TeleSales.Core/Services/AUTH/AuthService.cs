@@ -19,23 +19,40 @@ public class AuthService : IAuthService
     {
         _db = db;
     }
-    public async Task<string> LogIn(AuthDto dto)
+    public async Task<BaseResponse<string>> LogIn(AuthDto dto)
     {
         var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email);
+
         if (user == null || user.isDeleted)
         {
-            return new string("Invalid email or password");
+            return new BaseResponse<string>
+            (
+                data: null,
+                success: false,
+                message: "Invalid email or password"
+            );
         }
 
         if (user.Password != dto.Password)
         {
-            return new string("Invalid email or password");
+            return new BaseResponse<string>
+            (
+                data: null,
+                success: false,
+                message: "Invalid email or password"
+            );
         }
 
         var token = GenerateJwtToken(user);
 
-        return token;
+        return new BaseResponse<string>
+        (
+            data: token,
+            success: true,
+            message: "Login successful"
+        );
     }
+
 
 
     private string GenerateJwtToken(Users user)
