@@ -19,6 +19,7 @@ public class Calls : Base
     public string? Note { get; set; }
     public long? UserId { get; set; }
     public DateTime? LastStatusUpdate { get; set; } // Tracks when the status was last updated
+    public DateTime? NextCall {  get; set; }
 
 
     public virtual Users User { get; set; }

@@ -17,7 +17,6 @@ namespace TeleSales.Core.Services.AUTH
 
         public async Task<BaseResponse<string>> LogIn(AuthDto dto)
         {
-            // Find user by email
             var user = await _db.Users.FirstOrDefaultAsync(u => u.Email == dto.Email && !u.isDeleted);
 
             if (user == null || user.isDeleted)
@@ -29,7 +28,6 @@ namespace TeleSales.Core.Services.AUTH
                 );
             }
 
-            // Check if password matches
             if (user.Password != dto.Password)
             {
                 return new BaseResponse<string>(
@@ -39,10 +37,8 @@ namespace TeleSales.Core.Services.AUTH
                 );
             }
 
-            // Set token expiration based on RememberMe flag
             var tokenExpiration = dto.RememberMe ? TimeSpan.FromDays(365 * 100) : TimeSpan.FromDays(1);
 
-            // Generate JWT token
             var jwtHelper = new GenerateJwtHelper();
             var token = jwtHelper.GenerateJwtToken(user, tokenExpiration);
 

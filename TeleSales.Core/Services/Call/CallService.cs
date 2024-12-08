@@ -131,8 +131,8 @@ public class CallService : ICallService
                 var headers = new[]
                 {
                 "Entrepreneur Name", "Legal Name", "VOEN", "Permission Number",
-                "Status", "Address", "Phone", "Permission Start Date"
-            };
+                "Status", "Address", "Phone", "Permission Start Date", "FullName", "LastStatusUpdate", "Conclusion"
+                };
 
                 for (int i = 0; i < headers.Length; i++)
                 {
@@ -150,9 +150,11 @@ public class CallService : ICallService
                     worksheet.Cells[row + 2, 5].Value = call.Status;
                     worksheet.Cells[row + 2, 6].Value = call.Address;
                     worksheet.Cells[row + 2, 7].Value = call.Phone;
-                    worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate;
-                    worksheet.Cells[row + 2, 8].Value = call.User.FullName;
-                    worksheet.Cells[row + 2, 8].Value = call.LastStatusUpdate;
+                    worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate.ToString();
+                    worksheet.Cells[row + 2, 9].Value = call.User.FullName;
+                    worksheet.Cells[row + 2, 10].Value = call.LastStatusUpdate.ToString();
+                    worksheet.Cells[row + 2, 11].Value = call.Conclusion;
+
                 }
 
                 // Auto-fit columns
@@ -271,7 +273,7 @@ public class CallService : ICallService
 
         var call = new Calls()
         {
-            Status = dto.Status,
+            Status = "Yeni",
             KanalId = dto.KanalId,
             EntrepreneurName = dto.EntrepreneurName,
             LegalName = dto.LegalName,
@@ -305,6 +307,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         };
         return new BaseResponse<GetCallDto>(newCall);
     }
@@ -341,6 +344,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -389,6 +393,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -437,6 +442,8 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
+
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -482,6 +489,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         }).ToList();
 
         var pagedResult = new PagedResponse<GetCallDto>
@@ -525,24 +533,27 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         };
         return new BaseResponse<GetCallDto>(newCall);
     }
 
     public async Task<BaseResponse<GetCallDto>> GetRandomCall()
     {
-        var thresholdDate = DateTime.UtcNow.AddDays(-7);
+        var currentDateTime = DateTime.UtcNow;
 
-        var calls = await _db.Calls.Where(x => !x.isDeleted && (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate.ToUniversalTime())).ToListAsync();
+        var priorityCalls = await _db.Calls
+            .Where(x => !x.isDeleted && x.Conclusion == "Zəng çatmır" && x.NextCall.HasValue && x.NextCall <= currentDateTime)
+            .ToListAsync();
 
-        if (!calls.Any())
+        if (!priorityCalls.Any())
             return new BaseResponse<GetCallDto>(null, false, "No eligible calls available.");
 
-        if (_cachedCalls.TryGetValue(calls.First().KanalId, out var cachedCall))
+        if (_cachedCalls.TryGetValue(priorityCalls.First().KanalId, out var cachedCall))
             return new BaseResponse<GetCallDto>(cachedCall);
 
         var random = new Random();
-        var selectedCall = calls.OrderBy(_ => random.Next()).FirstOrDefault();
+        var selectedCall = priorityCalls.OrderBy(_ => random.Next()).FirstOrDefault();
 
         if (selectedCall == null)
             return new BaseResponse<GetCallDto>(null, false, "No call selected.");
@@ -566,6 +577,7 @@ public class CallService : ICallService
             LastStatusUpdate = selectedCall.LastStatusUpdate,
             Conclusion = selectedCall.Conclusion,
             isDone = selectedCall.isDone,
+            NextCall = selectedCall.NextCall,
         };
 
         _cachedCalls[selectedCall.KanalId] = dto;
@@ -612,6 +624,8 @@ public class CallService : ICallService
                 LastStatusUpdate = c.LastStatusUpdate,
                 Conclusion = c.Conclusion,
                 isDone = c.isDone,
+                NextCall = c.NextCall,
+
             })
             .ToListAsync();
 
@@ -661,6 +675,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
@@ -678,7 +693,6 @@ public class CallService : ICallService
 
 
 
-        call.Status = dto.Status;
         call.EntrepreneurName = dto.EntrepreneurName;
         call.LegalName = dto.LegalName;
         call.VOEN = dto.VOEN;
@@ -708,6 +722,7 @@ public class CallService : ICallService
             LastStatusUpdate = call.LastStatusUpdate,
             Conclusion = call.Conclusion,
             isDone = call.isDone,
+            NextCall = call.NextCall,
         };
 
         return new BaseResponse<GetCallDto>(newCall);
@@ -727,8 +742,43 @@ public class CallService : ICallService
         call.LastStatusUpdate = DateTime.Now;
         call.Note = dto.Note;
         call.Conclusion = dto.Conclusion;
-        if(call.Conclusion == "Razılaşdı")
-            call.isDone = true;
+        call.Status = "Yenidən zəng";
+        switch (dto.Conclusion)
+        {
+            case "Razılaşdı":
+                call.Conclusion = "Razılaşdı";
+                call.isDone = true;
+                if (string.IsNullOrEmpty(dto.Note))
+                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать номер договора.");
+                break;
+
+            case "İmtina etdi":
+                call.Conclusion = "İmtina etdi";
+                if (string.IsNullOrEmpty(dto.Note))
+                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать причину отказа.");
+                break;
+
+            case "Nömrə səhvdir":
+                call.Conclusion = "Nömrə səhvdir";
+                if (string.IsNullOrEmpty(dto.Note))
+                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать владельца номера.");
+                break;
+
+            case "Zəng çatmır":
+                call.Conclusion = "Zəng çatmır";
+                break;
+
+            case "Yenidən zəng":
+                call.Conclusion = "Yenidən zəng";
+                if (string.IsNullOrEmpty(dto.Note))
+                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать причину повторного звонка.");
+                if (!dto.LastStatusUpdate.HasValue)
+                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать дату и время повторного звонка.");
+                break;
+
+            default:
+                return new BaseResponse<GetCallDto>(null, false, "Некорректное заключение.");
+        }
 
         _db.Calls.Update(call);
         await _db.SaveChangesAsync();
