@@ -7,9 +7,6 @@ public class CreateCallDtoValidation : AbstractValidator<CreateCallDto>
 {
     public CreateCallDtoValidation()
     {
-        RuleFor(x => x.Status)
-            .NotEmpty().WithMessage("Status tələb olunur.")
-            .Length(1, 100).WithMessage("Status 1-dən 100 simvola qədər olmalıdır.");
 
         RuleFor(x => x.KanalId)
             .GreaterThan(0).WithMessage("Kanal seçilməlidir.");

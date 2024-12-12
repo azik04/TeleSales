@@ -11,4 +11,6 @@ public class Users : Base
     public Role Role { get; set; }
 
     public virtual ICollection<Calls> Calls { get; set; }
+    public virtual ICollection<UserKanals> UserKanal { get; set; }
+
 }

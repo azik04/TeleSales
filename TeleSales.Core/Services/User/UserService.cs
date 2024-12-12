@@ -22,7 +22,7 @@ public class UserService : IUserService
             FullName = dto.FirstName + " " + dto.LastName,
             Password = dto.Password,
             CreateAt = DateTime.UtcNow,
-            Role = DataProvider.Enums.Role.User,
+            Role = DataProvider.Enums.Role.Operator,
         };
         await _db.Users.AddAsync(user);
         await _db.SaveChangesAsync();
@@ -60,7 +60,7 @@ public class UserService : IUserService
 
     public async Task<BaseResponse<ICollection<GetUserDto>>> GetAllUser()
     {
-        var users = _db.Users.Where(x => !x.isDeleted && x.Role == DataProvider.Enums.Role.User);
+        var users = _db.Users.Where(x => !x.isDeleted && x.Role == DataProvider.Enums.Role.Operator);
 
         var userDtos = users.Select(user => new GetUserDto
         {
@@ -196,9 +196,9 @@ public class UserService : IUserService
         if (user == null)
             return new BaseResponse<GetUserDto>(null, false, "User not found.");
 
-        user.Role = user.Role == DataProvider.Enums.Role.User
+        user.Role = user.Role == DataProvider.Enums.Role.Operator
             ? DataProvider.Enums.Role.Admin
-            : DataProvider.Enums.Role.User;
+            : DataProvider.Enums.Role.Operator;
 
     
         _db.Users.Update(user);

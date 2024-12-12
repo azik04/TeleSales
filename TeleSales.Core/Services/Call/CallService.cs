@@ -20,7 +20,6 @@ public class CallService : ICallService
     }
 
 
-
     public async Task<BaseResponse<ICollection<GetCallDto>>> ImportFromExcelAsync(Stream excelFileStream, long kanalId)
     {
         var response = new BaseResponse<ICollection<GetCallDto>>(new List<GetCallDto>());
@@ -170,6 +169,7 @@ public class CallService : ICallService
         }
     }
 
+
     public async Task<byte[]> ExportToPdfAsync(long kanalId)
     {
         try
@@ -260,6 +260,7 @@ public class CallService : ICallService
             throw new Exception($"An error occurred while exporting data to PDF: {ex.Message}");
         }
     }
+
 
     public async Task<BaseResponse<GetCallDto>> Create(CreateCallDto dto)
     {
@@ -357,45 +358,43 @@ public class CallService : ICallService
         return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
     }
 
+
     public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize)
     {
-        if (kanalId == 0)
-            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
+        var currentDateTime = DateTime.UtcNow.AddHours(4);
 
-        var thresholdDate = DateTime.UtcNow.AddDays(-7);
+        var calls = await _db.Calls
+            .Where(x => x.KanalId == kanalId && !x.isDeleted &&
+                        (string.IsNullOrEmpty(x.Conclusion) ||
+                         (x.Conclusion == "Yenidən zəng" && x.NextCall.HasValue && x.NextCall.Value <= currentDateTime)))
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
-        var calls = _db.Calls
-            .Where(x => x.KanalId == kanalId
-                        && !x.isDeleted
-                        && (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate.ToUniversalTime()) && !x.isDone);
+        var totalCount = await _db.Calls.CountAsync(x => x.KanalId == kanalId && !x.isDeleted &&
+                                                         (string.IsNullOrEmpty(x.Conclusion) ||
+                                                          (x.Conclusion == "Yenidən zəng" && x.NextCall.HasValue && x.NextCall.Value <= currentDateTime)));
 
-        var totalCount = await calls.CountAsync();
-
-        calls = calls
-           .Skip((pageNumber - 1) * pageSize)
-           .Take(pageSize);
-        var callDtos = calls.Select(call => new GetCallDto
+        var callDtos = new List<GetCallDto>();
+        foreach (var call in calls)
         {
-            id = call.id,
-            isDelete = call.isDeleted,
-            Status = call.Status,
-            KanalId = call.KanalId,
-            EntrepreneurName = call.EntrepreneurName,
-            LegalName = call.LegalName,
-            VOEN = call.VOEN,
-            PermissionStartDate = call.PermissionStartDate,
-            PermissionNumber = call.PermissionNumber,
-            Address = call.Address,
-            Phone = call.Phone,
-            UserId = call.UserId,
-            CreateAt = DateTime.UtcNow,
-            Note = call.Note,
-            LastStatusUpdate = call.LastStatusUpdate,
-            Conclusion = call.Conclusion,
-            isDone = call.isDone,
-            NextCall = call.NextCall,
-        }).ToList();
-
+            callDtos.Add(new GetCallDto
+            {
+                id = call.id,
+                isDelete = call.isDeleted,
+                Status = call.Status,
+                KanalId = call.KanalId,
+                EntrepreneurName = call.EntrepreneurName,
+                LegalName = call.LegalName,
+                VOEN = call.VOEN,
+                PermissionStartDate = call.PermissionStartDate,
+                PermissionNumber = call.PermissionNumber,
+                Address = call.Address,
+                Phone = call.Phone,
+                UserId = call.UserId,
+                CreateAt = DateTime.UtcNow,
+            });
+        }
         var pagedResult = new PagedResponse<GetCallDto>
         {
             Items = callDtos,
@@ -409,43 +408,47 @@ public class CallService : ICallService
 
     public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
     {
-        if (kanalId == 0)
-            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId cant be 0.");
+        var currentDateTime = DateTime.UtcNow.AddHours(4);
 
-        var thresholdDate = DateTime.UtcNow.AddDays(-7);
+        var calls = await _db.Calls
+            .Where(x => x.KanalId == kanalId && !x.isDeleted && x.Conclusion != null &&
+                        x.Conclusion != "Yenidən zəng" ||
+                        (x.Conclusion == "Yenidən zəng" && x.NextCall.HasValue && x.NextCall.Value > currentDateTime))
+            .Skip((pageNumber - 1) * pageSize)
+            .Take(pageSize)
+            .ToListAsync();
 
-        var calls = _db.Calls.Where(x => x.KanalId == kanalId 
-                && !x.isDeleted 
-                && (x.LastStatusUpdate != null && x.LastStatusUpdate.Value.ToUniversalTime() >= thresholdDate) && !x.isDone);
-        
-        var totalCount = await calls.CountAsync();
+        var totalCount = await _db.Calls.CountAsync(x => x.KanalId == kanalId && !x.isDeleted && x.Conclusion != null &&
+                                                         x.Conclusion != "Yenidən zəng" ||
+                                                         (x.Conclusion == "Yenidən zəng" && x.NextCall.HasValue && x.NextCall.Value > currentDateTime));
 
-        calls = calls
-           .Skip((pageNumber - 1) * pageSize)
-           .Take(pageSize);
-        var callDtos = calls.Select(call => new GetCallDto
+        var callDtos = new List<GetCallDto>();
+        foreach (var call in calls)
         {
-            id = call.id,
-            isDelete = call.isDeleted,
-            Status = call.Status,
-            KanalId = call.KanalId,
-            EntrepreneurName = call.EntrepreneurName,
-            LegalName = call.LegalName,
-            VOEN = call.VOEN,
-            PermissionStartDate = call.PermissionStartDate,
-            PermissionNumber = call.PermissionNumber,
-            Address = call.Address,
-            Phone = call.Phone,
-            UserId = call.UserId,
-            CreateAt = DateTime.UtcNow,
-            Note = call.Note,
-            LastStatusUpdate = call.LastStatusUpdate,
-            Conclusion = call.Conclusion,
-            isDone = call.isDone,
-            NextCall = call.NextCall,
-
-        }).ToList();
-
+            var user = await _db.Users.SingleOrDefaultAsync(x => x.id == call.UserId);
+            callDtos.Add(new GetCallDto
+            {
+                id = call.id,
+                isDelete = call.isDeleted,
+                Status = call.Status,
+                KanalId = call.KanalId,
+                EntrepreneurName = call.EntrepreneurName,
+                LegalName = call.LegalName,
+                VOEN = call.VOEN,
+                PermissionStartDate = call.PermissionStartDate,
+                PermissionNumber = call.PermissionNumber,
+                Address = call.Address,
+                Phone = call.Phone,
+                UserId = call.UserId,
+                CreateAt = DateTime.UtcNow,
+                Note = call.Note,
+                LastStatusUpdate = call.LastStatusUpdate,
+                Conclusion = call.Conclusion,
+                isDone = call.isDone,
+                NextCall = call.NextCall,
+                UserName = user?.FullName 
+            });
+        }
         var pagedResult = new PagedResponse<GetCallDto>
         {
             Items = callDtos,
@@ -456,42 +459,46 @@ public class CallService : ICallService
         return new BaseResponse<PagedResponse<GetCallDto>>(pagedResult);
     }
 
-    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByKanalAndUser(long kanalId, long userId, int pageNumber, int pageSize)
+
+
+    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser( long userId, int pageNumber, int pageSize)
     {
-        if (kanalId == 0 || userId == 0)
-            return new BaseResponse<PagedResponse<GetCallDto>>(null, false, "KanalId or UserId can't be 0.");
-
-        var query = _db.Calls.Where(x => x.KanalId == kanalId && x.UserId == userId && !x.isDeleted);
-
-        var totalCount = await query.CountAsync();
-
-        var calls = await query
+        var calls = await _db.Calls
+            .Where(x => x.UserId == userId && !x.isDeleted)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
 
-        var callDtos = calls.Select(call => new GetCallDto
-        {
-            id = call.id,
-            isDelete = call.isDeleted,
-            Status = call.Status,
-            KanalId = call.KanalId,
-            EntrepreneurName = call.EntrepreneurName,
-            LegalName = call.LegalName,
-            VOEN = call.VOEN,
-            PermissionStartDate = call.PermissionStartDate,
-            PermissionNumber = call.PermissionNumber,
-            Address = call.Address,
-            Phone = call.Phone,
-            UserId = call.UserId,
-            CreateAt = DateTime.UtcNow,
-            Note = call.Note,
-            LastStatusUpdate = call.LastStatusUpdate,
-            Conclusion = call.Conclusion,
-            isDone = call.isDone,
-            NextCall = call.NextCall,
-        }).ToList();
+        var totalCount = await _db.Calls.CountAsync(x => x.UserId == userId && !x.isDeleted);
 
+
+        var callDtos = new List<GetCallDto>();
+        foreach (var call in calls)
+        {
+            var user = await _db.Users.SingleOrDefaultAsync(x => x.id == call.UserId);
+            callDtos.Add(new GetCallDto
+            {
+                id = call.id,
+                isDelete = call.isDeleted,
+                Status = call.Status,
+                KanalId = call.KanalId,
+                EntrepreneurName = call.EntrepreneurName,
+                LegalName = call.LegalName,
+                VOEN = call.VOEN,
+                PermissionStartDate = call.PermissionStartDate,
+                PermissionNumber = call.PermissionNumber,
+                Address = call.Address,
+                Phone = call.Phone,
+                UserId = call.UserId,
+                CreateAt = DateTime.UtcNow,
+                Note = call.Note,
+                LastStatusUpdate = call.LastStatusUpdate,
+                Conclusion = call.Conclusion,
+                isDone = call.isDone,
+                NextCall = call.NextCall,
+                UserName = user?.FullName
+            });
+        }
         var pagedResult = new PagedResponse<GetCallDto>
         {
             Items = callDtos,
@@ -538,13 +545,18 @@ public class CallService : ICallService
         return new BaseResponse<GetCallDto>(newCall);
     }
 
+
     public async Task<BaseResponse<GetCallDto>> GetRandomCall()
     {
-        var currentDateTime = DateTime.UtcNow;
+        var currentDateTime = DateTime.UtcNow.AddHours(4);
 
         var priorityCalls = await _db.Calls
-            .Where(x => !x.isDeleted && x.Conclusion == "Zəng çatmır" && x.NextCall.HasValue && x.NextCall <= currentDateTime)
-            .ToListAsync();
+    .Where(x =>
+        !x.isDeleted &&
+        (string.IsNullOrEmpty(x.Conclusion) ||
+        (x.Conclusion == "Yenidən zəng" && x.NextCall.HasValue && x.NextCall <= currentDateTime))
+    )
+    .ToListAsync();
 
         if (!priorityCalls.Any())
             return new BaseResponse<GetCallDto>(null, false, "No eligible calls available.");
@@ -584,8 +596,6 @@ public class CallService : ICallService
 
         return new BaseResponse<GetCallDto>(dto);
     }
-
-
 
 
     public async Task<BaseResponse<PagedResponse<GetCallDto>>> FindAsync(string query, int pageNumber, int pageSize)
@@ -681,6 +691,7 @@ public class CallService : ICallService
         return new BaseResponse<GetCallDto>(newCall);
     }
 
+
     public async Task<BaseResponse<GetCallDto>> Update(long id, UpdateCallDto dto)
     {
         if (id == 0)
@@ -727,6 +738,8 @@ public class CallService : ICallService
 
         return new BaseResponse<GetCallDto>(newCall);
     }
+
+
     public async Task<BaseResponse<GetCallDto>> Exclude(long id, ExcludeCallDto dto)
     {
         if (id == 0)
@@ -740,7 +753,6 @@ public class CallService : ICallService
 
         call.UserId = dto.UserId;
         call.LastStatusUpdate = DateTime.Now;
-        call.Note = dto.Note;
         call.Conclusion = dto.Conclusion;
         call.Status = "Yenidən zəng";
         switch (dto.Conclusion)
@@ -750,30 +762,36 @@ public class CallService : ICallService
                 call.isDone = true;
                 if (string.IsNullOrEmpty(dto.Note))
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать номер договора.");
+                call.Note = dto.Note;
+
                 break;
 
             case "İmtina etdi":
                 call.Conclusion = "İmtina etdi";
                 if (string.IsNullOrEmpty(dto.Note))
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать причину отказа.");
+                call.Note = dto.Note;
+
                 break;
 
             case "Nömrə səhvdir":
                 call.Conclusion = "Nömrə səhvdir";
-                if (string.IsNullOrEmpty(dto.Note))
-                    return new BaseResponse<GetCallDto>(null, false, "Необходимо указать владельца номера.");
+                call.Note = dto.Note;
                 break;
 
             case "Zəng çatmır":
                 call.Conclusion = "Zəng çatmır";
+                call.Note = dto.Note;
                 break;
 
             case "Yenidən zəng":
                 call.Conclusion = "Yenidən zəng";
                 if (string.IsNullOrEmpty(dto.Note))
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать причину повторного звонка.");
-                if (!dto.LastStatusUpdate.HasValue)
+                if (!dto.NextCall.HasValue)
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать дату и время повторного звонка.");
+                call.NextCall = dto.NextCall.Value;
+                call.Note = dto.Note;
                 break;
 
             default:

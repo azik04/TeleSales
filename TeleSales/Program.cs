@@ -15,7 +15,7 @@ builder.Services.AddValidationService();
 
 builder.Services.AddDatabaseConfiguration(builder.Configuration);
 
-builder.Services.AddServiceDependencies();
+builder.Services.AddServiceDependencies(builder.Configuration);
 
 builder.Services.AddAuthenticationConfiguration(builder.Configuration);
 

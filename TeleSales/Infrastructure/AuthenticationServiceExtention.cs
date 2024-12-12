@@ -30,11 +30,11 @@ public static class AuthenticationServiceExtensions
             };
         });
 
-        // Configure authorization
         services.AddAuthorization(options =>
         {
             options.AddPolicy("Admin", policy => policy.RequireRole(Role.Admin.ToString()));
-            options.AddPolicy("User", policy => policy.RequireRole(Role.User.ToString(), Role.Admin.ToString()));
+            options.AddPolicy("BaşOperator", policy => policy.RequireRole(Role.BaşOperator.ToString(), Role.Admin.ToString()));
+            options.AddPolicy("Operator", policy => policy.RequireRole(Role.Operator.ToString(), Role.BaşOperator.ToString(), Role.Admin.ToString()));
         });
 
     }

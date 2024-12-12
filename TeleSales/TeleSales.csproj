@@ -19,6 +19,7 @@
   <ItemGroup>
     <ProjectReference Include="..\TeleSales.Core\TeleSales.Core.csproj" />
     <ProjectReference Include="..\TeleSales.DataProvider\TeleSales.DataProvider.csproj" />
+    <ProjectReference Include="..\TeleSales.Mail\TeleSales.Mail.csproj" />
   </ItemGroup>
 
 </Project>

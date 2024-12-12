@@ -7,4 +7,5 @@ public class Kanals : Base
     public string Name { get; set; } 
 
     public virtual ICollection<Calls> Calls { get; set; }
+    public virtual ICollection<UserKanals> UserKanal {  get; set; }
 }

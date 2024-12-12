@@ -8,8 +8,8 @@ public static class CorsServiceExtensions
         {
             options.AddPolicy("AllowLocalhost",
                 builder => builder.WithOrigins("http://localhost:3000")
-                                  .AllowAnyMethod()
-                                  .AllowAnyHeader());
+                    .AllowAnyMethod()
+                    .AllowAnyHeader());
         });
     }
 }

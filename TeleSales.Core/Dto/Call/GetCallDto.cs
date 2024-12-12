@@ -21,6 +21,7 @@ public class GetCallDto
     public string? Conclusion { get; set; }
     public string? Note { get; set; }
     public long? UserId { get; set; }
+    public string? UserName { get; set; }   
     public DateTime? LastStatusUpdate { get; set; } // Tracks when the status was last updated
     public DateTime? NextCall { get; set; }
 }

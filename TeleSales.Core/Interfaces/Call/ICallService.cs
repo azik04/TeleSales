@@ -10,7 +10,7 @@ public interface ICallService
     Task<byte[]> ExportToPdfAsync(long kanalId);
     Task<BaseResponse<GetCallDto>> Create(CreateCallDto dto);
     Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByKanal(long kanalId, int pageNumber, int pageSize);
-    Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByKanalAndUser(long kanalId, long userId, int pageNumber, int pageSize);
+    Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser(long userId, int pageNumber, int pageSize);
     Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize);
     Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllExcluded(long kanalId, int pageNumber, int pageSize);
     Task<BaseResponse<GetCallDto>> GetRandomCall();

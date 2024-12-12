@@ -1,6 +1,6 @@
 ﻿namespace TeleSales.Mail;
 
-internal interface IEmailService
+public interface IEmailService
 { 
     Task SendEmailAsync(string to, string subject, string content);
 }
