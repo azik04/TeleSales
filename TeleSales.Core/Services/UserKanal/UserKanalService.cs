@@ -42,6 +42,7 @@ public class UserKanalService : IUserKanalService
                     UserId = existingUser.UserId,
                     UserEmail = user.Email,
                     KanalName = kanal.Name,
+                    
                 };
 
                 return new BaseResponse<GetUserKanalDto>(restoredDto, true, "User successfully re-added to the channel.");
@@ -111,6 +112,7 @@ public class UserKanalService : IUserKanalService
             id = kanal.Kanals.id,         
             Name = kanal.Kanals.Name,
             CreateAt = kanal.Kanals.CreateAt,
+            Type = kanal.Kanals.Type.ToString(),
             isDeleted = kanal.Kanals.isDeleted
         }).ToList();
 

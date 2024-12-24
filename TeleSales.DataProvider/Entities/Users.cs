@@ -12,5 +12,6 @@ public class Users : Base
 
     public virtual ICollection<Calls> Calls { get; set; }
     public virtual ICollection<UserKanals> UserKanal { get; set; }
+    public virtual ICollection<CallCenters> CallCenter { get; set; }
 
 }

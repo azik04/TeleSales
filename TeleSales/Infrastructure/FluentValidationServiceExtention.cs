@@ -2,6 +2,7 @@
 using FluentValidation.AspNetCore;
 using TeleSales.Core.Validation.Auth;
 using TeleSales.Core.Validation.Call;
+using TeleSales.Core.Validation.CallCenter;
 using TeleSales.Core.Validation.User;
 
 namespace TeleSales.Infrastructure;
@@ -22,5 +23,8 @@ public static class FluentValidationServiceExtention
 
         services.AddValidatorsFromAssemblyContaining<CreateUserDtoValidation>();
         services.AddValidatorsFromAssemblyContaining<UpdateUserDtoValidation>();
+
+        services.AddValidatorsFromAssemblyContaining<CreateCallCenterDtoValidation>();
+
     }
 }

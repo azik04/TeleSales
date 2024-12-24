@@ -22,7 +22,7 @@ public class KanalController : ControllerBase
     /// </summary>
     /// <returns>A response with a list of all Kanals or error message</returns>
     [HttpGet]
-    [Authorize(Policy = "Operator")]
+    [Authorize(Policy = "Viewer")]
 
     public async Task<IActionResult> GetAll()
     {

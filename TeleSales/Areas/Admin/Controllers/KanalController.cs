@@ -23,7 +23,6 @@ public class KanalController : ControllerBase
     /// <param name="dto">The data for creating a new Kanal</param>
     /// <returns>A response with the created Kanal data or error message</returns>
     [HttpPost]
-    [Authorize(Policy = "Admin")]
 
     public async Task<IActionResult> Create(CreateKanalDto dto)
     {

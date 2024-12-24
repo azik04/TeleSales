@@ -15,28 +15,43 @@ public class CallController : ControllerBase
         _service = service;
     }
 
+
     /// <summary>
-    /// Import calls from an Excel file
+    /// Get all calls that are not excluded
     /// </summary>
-    /// <param name="file">The Excel file containing call data</param>
-    /// <returns>A response with the imported call data or error message</returns>
-    [HttpPost("import")]
-    [Authorize(Policy = "BaşOperator")]
-    public async Task<IActionResult> ImportFromExcel(IFormFile file, long kanalId)
+    /// <param name="kanalId">The channel ID</param>
+    /// <param name="pageNumber">The page number for pagination</param>
+    /// <param name="pageSize">The number of records per page</param>
+    /// <returns>A paginated list of calls that are not excluded</returns>
+    [HttpGet("NotExcluded")]
+    [Authorize(Policy = "Viewer")]
+    public async Task<IActionResult> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize)
     {
-        if (file == null || file.Length == 0)
-            return BadRequest("No file uploaded.");
+        var res = await _service.GetAllNotExcluded(kanalId, pageNumber, pageSize);
+        if (!res.Success)
+            return BadRequest(res.Message);
 
-        using (var fileStream = file.OpenReadStream())
-        {
-            var response = await _service.ImportFromExcelAsync(fileStream, kanalId);
-
-            if (response.Success)
-                return Ok(response);
-            return BadRequest(response.Message);
-        }
+        return Ok(res);
     }
 
+    /// <summary>
+    /// Get all calls that are excluded
+    /// </summary>
+    /// <param name="kanalId">The channel ID</param>
+    /// <param name="pageNumber">The page number for pagination</param>
+    /// <param name="pageSize">The number of records per page</param>
+    /// <returns>A paginated list of excluded calls</returns>
+    [HttpGet("Excluded")]
+    [Authorize(Policy = "Viewer")]
+
+    public async Task<IActionResult> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
+    {
+        var res = await _service.GetAllExcluded(kanalId, pageNumber, pageSize);
+        if (!res.Success)
+            return BadRequest(res.Message);
+
+        return Ok(res);
+    }
 
     /// <summary>
     /// Export calls to an Excel file
@@ -44,7 +59,7 @@ public class CallController : ControllerBase
     /// <param name="kanalId">The channel ID to filter calls</param>
     /// <returns>The Excel file containing the exported call data</returns>
     [HttpGet("ExportExcel")]
-    [Authorize(Policy = "BaşOperator")]
+    [Authorize(Policy = "Viewer")]
     public async Task<IActionResult> ExportToExcelAsync(long kanalId)
     {
         try
@@ -65,48 +80,7 @@ public class CallController : ControllerBase
     }
 
 
-    /// <summary>
-    /// Export calls to an Pdf file
-    /// </summary>
-    /// <param name="kanalId">The channel ID to filter calls</param>
-    /// <returns>The Pdf file containing the exported call data</returns>
-    [HttpGet("ExportPdf")]
-    [Authorize(Policy = "BaşOperator")]
-    public async Task<IActionResult> ExportToPdfAsync(long kanalId)
-    {
-        try
-        {
-            var pdfBytes = await _service.ExportToPdfAsync(kanalId);
 
-            if (pdfBytes == null || pdfBytes.Length == 0)
-                return BadRequest(new { Message = "No data found to export." });
-
-            var fileName = $"Calls_{kanalId}_{DateTime.UtcNow:yyyyMMdd}.pdf";
-
-            return File(pdfBytes, "application/pdf", fileName);
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { Message = $"An error occurred: {ex.Message}" });
-        }
-    }
-
-    /// <summary>
-    /// Create a new call record
-    /// </summary>
-    /// <param name="dto">The details for the new call</param>
-    /// <param name="kanalId">The channel to which the call belongs</param>
-    /// <returns>A response with the created call data or an error message</returns>
-    [HttpPost]
-    [Authorize(Policy = "BaşOperator")]
-    public async Task<IActionResult> Create(CreateCallDto dto, long kanalId)
-    {
-        var res = await _service.Create(dto);
-        if (!res.Success)
-            return BadRequest(res.Message);
-
-        return Ok(res);
-    }
 
 
     /// <summary>
@@ -118,6 +92,7 @@ public class CallController : ControllerBase
     /// <returns>A paginated list of calls by channel and user</returns>
     [HttpGet("User/{userId}")]
     [Authorize(Policy = "Operator")]
+
     public async Task<IActionResult> GetAllByUser(long userId, int pageNumber, int pageSize)
     {
         var res = await _service.GetAllByUser(userId, pageNumber, pageSize);
@@ -127,39 +102,22 @@ public class CallController : ControllerBase
         return Ok(res);
     }
 
+
     /// <summary>
     /// Get a random call
     /// </summary>
     /// <returns>A random call from the database</returns>
     [HttpGet("Random")]
     [Authorize(Policy = "Operator")]
-    public async Task<IActionResult> GetRandomCall()
+    public async Task<IActionResult> GetRandomCall(long kanalId)
     {
-        var res = await _service.GetRandomCall();
+        var res = await _service.GetRandomCallsByVoen(kanalId);
         if (!res.Success)
             return BadRequest(res.Message);
 
         return Ok(res);
     }
 
-    /// <summary>
-    /// Search for calls based on a query string
-    /// </summary>
-    /// <param name="query">The search query</param>
-    /// <param name="pageNumber">The page number for pagination</param>
-    /// <param name="pageSize">The number of records per page</param>
-    /// <returns>A paginated list of calls that match the search query</returns>
-    [HttpGet("Search")]
-    [Authorize(Policy = "Operator")]
-
-    public async Task<IActionResult> FindAsync(string query, int pageNumber, int pageSize)
-    {
-        var res = await _service.FindAsync(query, pageNumber, pageSize);
-        if (!res.Success)
-            return BadRequest(res.Message);
-
-        return Ok(res);
-    }
 
     /// <summary>
     /// Get a call by its ID
@@ -167,7 +125,7 @@ public class CallController : ControllerBase
     /// <param name="id">The call ID</param>
     /// <returns>The call details if found</returns>
     [HttpGet("{id}")]
-    [Authorize(Policy = "Operator")]
+    [Authorize]
 
     public async Task<IActionResult> GetById(long id)
     {

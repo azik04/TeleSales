@@ -18,68 +18,13 @@ public class CallController : ControllerBase
 
 
     /// <summary>
-    /// Get all calls by channel ID with pagination
-    /// </summary>
-    /// <param name="kanalId">The channel ID</param>
-    /// <param name="pageNumber">The page number for pagination</param>
-    /// <param name="pageSize">The number of records per page</param>
-    /// <returns>A paginated list of calls associated with the given channel</returns>
-    [HttpGet("{kanalId}/Kanal")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> GetAllByKanal(long kanalId, int pageNumber, int pageSize)
-    {
-        var res = await _service.GetAllByKanal(kanalId, pageNumber, pageSize);
-        if (!res.Success)
-            return BadRequest(res.Message);
-
-        return Ok(res);
-    }
-
-    /// <summary>
-    /// Get all calls that are not excluded
-    /// </summary>
-    /// <param name="kanalId">The channel ID</param>
-    /// <param name="pageNumber">The page number for pagination</param>
-    /// <param name="pageSize">The number of records per page</param>
-    /// <returns>A paginated list of calls that are not excluded</returns>
-    [HttpGet("NotExcluded")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize)
-    {
-        var res = await _service.GetAllNotExcluded(kanalId, pageNumber, pageSize);
-        if (!res.Success)
-            return BadRequest(res.Message);
-
-        return Ok(res);
-    }
-
-    /// <summary>
-    /// Get all calls that are excluded
-    /// </summary>
-    /// <param name="kanalId">The channel ID</param>
-    /// <param name="pageNumber">The page number for pagination</param>
-    /// <param name="pageSize">The number of records per page</param>
-    /// <returns>A paginated list of excluded calls</returns>
-    [HttpGet("Excluded")]
-    [Authorize(Policy = "Admin")]
-    public async Task<IActionResult> GetAllExcluded(long kanalId, int pageNumber, int pageSize)
-    {
-        var res = await _service.GetAllExcluded(kanalId, pageNumber, pageSize);
-        if (!res.Success)
-            return BadRequest(res.Message);
-
-        return Ok(res);
-    }
-
-
-    /// <summary>
     /// Update a call by its ID
     /// </summary>
     /// <param name="id">The call ID</param>
     /// <param name="dto">The updated call details</param>
     /// <returns>The updated call data or an error message</returns>
     [HttpPut("{id}")]
-    [Authorize(Policy = "Operator")]
+    [Authorize(Policy = "Admin")]
 
     public async Task<IActionResult> Update(long id, UpdateCallDto dto)
     {
@@ -97,11 +42,54 @@ public class CallController : ControllerBase
     /// <param name="id">The call ID</param>
     /// <returns>A success message or an error message</returns>
     [HttpDelete("{id}")]
-    [Authorize(Policy = "Operator")]
+    [Authorize(Policy = "Admin")]
 
     public async Task<IActionResult> Remove(long id)
     {
         var res = await _service.Remove(id);
+        if (!res.Success)
+            return BadRequest(res.Message);
+
+        return Ok(res);
+    }
+
+
+    /// <summary>
+    /// Import calls from an Excel file
+    /// </summary>
+    /// <param name="file">The Excel file containing call data</param>
+    /// <returns>A response with the imported call data or error message</returns>
+    [HttpPost("import")]
+    [Authorize(Policy = "Admin")]
+
+    public async Task<IActionResult> ImportFromExcel(IFormFile file, long kanalId)
+    {
+        if (file == null || file.Length == 0)
+            return BadRequest("No file uploaded.");
+
+        using (var fileStream = file.OpenReadStream())
+        {
+            var response = await _service.ImportFromExcelAsync(fileStream, kanalId);
+
+            if (response.Success)
+                return Ok(response);
+            return BadRequest(response.Message);
+        }
+    }
+
+
+    /// <summary>
+    /// Create a new call record
+    /// </summary>
+    /// <param name="dto">The details for the new call</param>
+    /// <param name="kanalId">The channel to which the call belongs</param>
+    /// <returns>A response with the created call data or an error message</returns>
+    [HttpPost]
+    [Authorize(Policy = "Admin")]
+
+    public async Task<IActionResult> Create(CreateCallDto dto, long kanalId)
+    {
+        var res = await _service.Create(dto);
         if (!res.Success)
             return BadRequest(res.Message);
 

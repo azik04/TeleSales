@@ -6,4 +6,5 @@ public class GetUserKanalDto
     public string? KanalName { get; set; }
     public long UserId { get; set; }
     public string? UserEmail { get; set; }
+    public string Type {  get; set; }
 }

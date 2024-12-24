@@ -21,7 +21,8 @@ public class KanalService : IKanalService
         var kanal = new Kanals()
         {
             Name = dto.Name,
-            CreateAt = DateTime.UtcNow
+            CreateAt = DateTime.UtcNow,
+            Type = dto.Type,
         };
 
         await _db.Kanals.AddAsync(kanal);
@@ -33,6 +34,7 @@ public class KanalService : IKanalService
             CreateAt = kanal.CreateAt,
             Name = kanal.Name,
             isDeleted = kanal.isDeleted,
+            Type = kanal.Type.ToString(),
         };
 
         return new BaseResponse<GetKanalDto>(newKanal);
@@ -48,6 +50,7 @@ public class KanalService : IKanalService
             isDeleted = kanal.isDeleted,
             CreateAt = kanal.CreateAt,
             Name = kanal.Name,
+            Type = kanal.Type.ToString(),
         }).ToList();
 
         return new BaseResponse<ICollection<GetKanalDto>>(kanalDtos);
@@ -69,6 +72,7 @@ public class KanalService : IKanalService
             CreateAt = kanal.CreateAt,
             Name = kanal.Name,
             isDeleted = kanal.isDeleted,
+            Type = kanal.Type.ToString(),
         };
 
         return new BaseResponse<GetKanalDto>(newKanal);
@@ -95,6 +99,7 @@ public class KanalService : IKanalService
             CreateAt = kanal.CreateAt,
             Name = kanal.Name,
             isDeleted = kanal.isDeleted,
+            Type = kanal.Type.ToString(),
         };
 
         return new BaseResponse<GetKanalDto>(newKanal);
@@ -111,6 +116,7 @@ public class KanalService : IKanalService
             return new BaseResponse<GetKanalDto>(null, false, "Kanal cant be NULL.");
 
         kanal.Name = dto.Name;
+        kanal.Type = dto.Type;
 
         _db.Kanals.Update(kanal);
         await _db.SaveChangesAsync();
@@ -121,6 +127,7 @@ public class KanalService : IKanalService
             CreateAt = kanal.CreateAt,
             Name = kanal.Name,
             isDeleted = kanal.isDeleted,
+            Type = kanal.Type.ToString(),
         };
 
         return new BaseResponse<GetKanalDto>(newKanal);

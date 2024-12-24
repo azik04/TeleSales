@@ -33,6 +33,7 @@ public static class AuthenticationServiceExtensions
         services.AddAuthorization(options =>
         {
             options.AddPolicy("Admin", policy => policy.RequireRole(Role.Admin.ToString()));
+            options.AddPolicy("Viewer", policy => policy.RequireRole(Role.Viewer.ToString(), Role.Admin.ToString()));
             options.AddPolicy("BaşOperator", policy => policy.RequireRole(Role.BaşOperator.ToString(), Role.Admin.ToString()));
             options.AddPolicy("Operator", policy => policy.RequireRole(Role.Operator.ToString(), Role.BaşOperator.ToString(), Role.Admin.ToString()));
         });

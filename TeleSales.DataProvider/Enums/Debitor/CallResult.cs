@@ -1,6 +1,6 @@
-﻿namespace TeleSales.DataProvider.Enums;
+﻿namespace TeleSales.DataProvider.Enums.Debitor;
 
-public enum CallStatus
+public enum CallResult
 {
     Razılaşdı,
     ImtinaEtdi,

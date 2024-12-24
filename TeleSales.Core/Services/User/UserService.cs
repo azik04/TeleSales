@@ -4,6 +4,7 @@ using TeleSales.Core.Interfaces.User;
 using TeleSales.Core.Response;
 using TeleSales.DataProvider.Context;
 using TeleSales.DataProvider.Entities;
+using TeleSales.DataProvider.Enums;
 
 namespace TeleSales.Core.Services.User;
 
@@ -60,7 +61,9 @@ public class UserService : IUserService
 
     public async Task<BaseResponse<ICollection<GetUserDto>>> GetAllUser()
     {
-        var users = _db.Users.Where(x => !x.isDeleted && x.Role == DataProvider.Enums.Role.Operator);
+        var users = _db.Users
+            .Where(x => !x.isDeleted &&
+                       (x.Role == DataProvider.Enums.Role.Operator || x.Role == DataProvider.Enums.Role.BaşOperator));
 
         var userDtos = users.Select(user => new GetUserDto
         {
