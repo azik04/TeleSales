@@ -1,13 +1,9 @@
-﻿using EFCore.BulkExtensions;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using OfficeOpenXml;
-using TeleSales.Core.Dto.Call;
 using TeleSales.Core.Dto.CallCenter;
 using TeleSales.Core.Interfaces.CallCenter;
 using TeleSales.Core.Response;
 using TeleSales.DataProvider.Context;
-using TeleSales.DataProvider.Entities;
-using TeleSales.DataProvider.Enums.Debitor;
 
 namespace TeleSales.Core.Services.CallCenter;
 
@@ -22,38 +18,64 @@ public class CallCenterService : ICallCenterService
 
     public async Task<BaseResponse<GetCallCenterDto>> Create(CreateCallCenterDto dto)
     {
-        // Check if the ExcludedBy value exists in the Users table
         var user = await _db.Users.SingleOrDefaultAsync(x => x.id == dto.ExcludedBy);
         if (user == null)
         {
             return new BaseResponse<GetCallCenterDto>("Invalid ExcludedBy user ID.");
         }
 
-        // Create a new CallCenters entity
-        var center = new CallCenters
-        {
-            ShortContent = dto.ShortContent,
-            VOEN = dto.VOEN,
-            Department = dto.Department,
-            DetailsContent = dto.DetailsContent,
-            kanalId = dto.kanalId,
-            ApplicationType = dto.ApplicationType,
-            Conclusion = dto.Conclusion,
-            FullName = dto.FirstName + " " + dto.LastName,
-            Phone = dto.Phone,
-            ForwardTo = dto.ForwardTo,
-            Addition = dto.Addition,
-            ExcludedBy = dto.ExcludedBy,
-            Region = dto.Region,
-            CreateAt = DateTime.Now,
-        };
+        GetCallCenterDto result = null;
 
-        // Add and save the CallCenters entity
-        await _db.CallCenters.AddAsync(center);
+        CallCenters center = null;
+
+        if (dto.Forwarding == true)
+        {
+            center = new CallCenters
+            {
+                ShortContent = dto.ShortContent,
+                VOEN = dto.VOEN,
+                Department = dto.Department,
+                DetailsContent = dto.DetailsContent,
+                kanalId = dto.kanalId,
+                ApplicationType = dto.ApplicationType,
+                Conclusion = dto.Conclusion,
+                FullName = dto.FirstName + " " + dto.LastName,
+                Phone = dto.Phone,
+                ForwardTo = dto.ForwardTo,
+                Addition = dto.Addition,
+                ExcludedBy = dto.ExcludedBy,
+                Region = dto.Region,
+                CreateAt = DateTime.Now,
+                isForwarding = true
+            };
+
+            await _db.CallCenters.AddAsync(center);
+        }
+        else
+        {
+            center = new CallCenters
+            {
+                ShortContent = dto.ShortContent,
+                VOEN = dto.VOEN,
+                DetailsContent = dto.DetailsContent,
+                kanalId = dto.kanalId,
+                ApplicationType = dto.ApplicationType,
+                Conclusion = dto.Conclusion,
+                FullName = dto.FirstName + " " + dto.LastName,
+                Phone = dto.Phone,
+                Addition = dto.Addition,
+                ExcludedBy = dto.ExcludedBy,
+                Region = dto.Region,
+                CreateAt = DateTime.Now,
+                isForwarding = false
+            };
+
+            await _db.CallCenters.AddAsync(center);
+        }
+
         await _db.SaveChangesAsync();
 
-        // Prepare the response DTO
-        var data = new GetCallCenterDto
+        result = new GetCallCenterDto
         {
             id = center.id,
             IsDeleted = center.isDeleted,
@@ -74,17 +96,18 @@ public class CallCenterService : ICallCenterService
             kanalId = dto.kanalId,
         };
 
-        return new BaseResponse<GetCallCenterDto>(data);
+        return new BaseResponse<GetCallCenterDto>(result);
     }
 
 
 
-    public async Task<BaseResponse<PagedResponse<GetCallCenterDto>>> GetAllByUser(long userId, int pageNumber, int pageSize)
+
+    public async Task<BaseResponse<PagedResponse<GetCallCenterDto>>> GetAllByUser(long userId, long kanalId, int pageNumber, int pageSize)
     {
         if (userId == 0)
             return new BaseResponse<PagedResponse<GetCallCenterDto>>(null, false, "");
 
-        var data = await _db.CallCenters.Where(x => !x.isDeleted && x.ExcludedBy == userId)
+        var data = await _db.CallCenters.Where(x => !x.isDeleted && x.ExcludedBy == userId && x.kanalId == kanalId)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize).ToListAsync();
 
@@ -281,7 +304,7 @@ public class CallCenterService : ICallCenterService
                     var kanal = await _db.Kanals.SingleOrDefaultAsync(x => x.id == call.kanalId);
 
                     worksheet.Cells[row + 2, 1].Value = kanal?.Name;
-                    worksheet.Cells[row + 2, 2].Value = call.CreateAt;
+                    worksheet.Cells[row + 2, 2].Value = call.CreateAt.ToString();
                     worksheet.Cells[row + 2, 3].Value = call.VOEN;
                     worksheet.Cells[row + 2, 4].Value = call.Region;
                     worksheet.Cells[row + 2, 5].Value = call.FullName;

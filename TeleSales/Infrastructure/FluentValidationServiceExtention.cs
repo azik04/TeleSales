@@ -18,11 +18,12 @@ public static class FluentValidationServiceExtention
         services.AddValidatorsFromAssemblyContaining<CreateCallDtoValidation>();
         services.AddValidatorsFromAssemblyContaining<UpdateCallDtoValidation>();
 
-        services.AddValidatorsFromAssemblyContaining<CreateUserDtoValidation>();
         services.AddValidatorsFromAssemblyContaining<UpdateCallDtoValidation>();
+        services.AddValidatorsFromAssemblyContaining<ExcludeCallDtoValidation>();
 
         services.AddValidatorsFromAssemblyContaining<CreateUserDtoValidation>();
         services.AddValidatorsFromAssemblyContaining<UpdateUserDtoValidation>();
+
 
         services.AddValidatorsFromAssemblyContaining<CreateCallCenterDtoValidation>();
 

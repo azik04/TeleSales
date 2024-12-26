@@ -44,7 +44,7 @@ public class UserService : IUserService
 
     public async Task<BaseResponse<ICollection<GetUserDto>>> GetAll()
     {
-        var users = _db.Users.Where(x => !x.isDeleted);
+        var users = _db.Users.Where(x => !x.isDeleted && (x.Role == Role.Operator || x.Role == Role.BaşOperator));
 
         var userDtos = users.Select(user => new GetUserDto
         {
@@ -63,7 +63,7 @@ public class UserService : IUserService
     {
         var users = _db.Users
             .Where(x => !x.isDeleted &&
-                       (x.Role == DataProvider.Enums.Role.Operator || x.Role == DataProvider.Enums.Role.BaşOperator));
+                       (x.Role == DataProvider.Enums.Role.Operator));
 
         var userDtos = users.Select(user => new GetUserDto
         {
@@ -77,6 +77,47 @@ public class UserService : IUserService
 
         return new BaseResponse<ICollection<GetUserDto>>(userDtos);
     }
+
+
+    public async Task<BaseResponse<ICollection<GetUserDto>>> GetAllViewer()
+    {
+        var users = _db.Users
+            .Where(x => !x.isDeleted &&
+                       (x.Role == DataProvider.Enums.Role.Viewer));
+
+        var userDtos = users.Select(user => new GetUserDto
+        {
+            id = user.id,
+            isDeleted = user.isDeleted,
+            CreateAt = user.CreateAt,
+            Email = user.Email,
+            FullName = user.FullName,
+            Role = user.Role,
+        }).ToList();
+
+        return new BaseResponse<ICollection<GetUserDto>>(userDtos);
+    }
+
+
+    public async Task<BaseResponse<ICollection<GetUserDto>>> GetAllBasOperator()
+    {
+        var users = _db.Users
+            .Where(x => !x.isDeleted &&
+                       (x.Role == DataProvider.Enums.Role.BaşOperator));
+
+        var userDtos = users.Select(user => new GetUserDto
+        {
+            id = user.id,
+            isDeleted = user.isDeleted,
+            CreateAt = user.CreateAt,
+            Email = user.Email,
+            FullName = user.FullName,
+            Role = user.Role,
+        }).ToList();
+
+        return new BaseResponse<ICollection<GetUserDto>>(userDtos);
+    }
+
 
     public async Task<BaseResponse<ICollection<GetUserDto>>> GetAllAdmin()
     {
@@ -190,7 +231,7 @@ public class UserService : IUserService
 
 
 
-    public async Task<BaseResponse<GetUserDto>> ChangeRole(long id)
+    public async Task<BaseResponse<GetUserDto>> ChangeRole(long id , Role role)
     {
         if (id == 0)
             return new BaseResponse<GetUserDto>(null, false, "Id cannot be 0.");
@@ -199,10 +240,7 @@ public class UserService : IUserService
         if (user == null)
             return new BaseResponse<GetUserDto>(null, false, "User not found.");
 
-        user.Role = user.Role == DataProvider.Enums.Role.Operator
-            ? DataProvider.Enums.Role.Admin
-            : DataProvider.Enums.Role.Operator;
-
+        user.Role = role; 
     
         _db.Users.Update(user);
         await _db.SaveChangesAsync();
@@ -250,4 +288,5 @@ public class UserService : IUserService
 
         return new BaseResponse<GetUserDto>(newUser);
     }
+
 }

@@ -128,7 +128,7 @@ public class CallService : ICallService
 
                 var headers = new[]
                 {
-                "Kanal", "Status", "VÖEN", "Fakturanın nömrəsi","Rayon", "Başlama Tarixi", "Bitmə Tarixi", "Kücə", "Mövzu", "Əlaqə Nömrəsi", "Reklam yayıcının adı","Debitor üzrə cəm borclar",
+                "Kanal", "Status", "VÖEN", "Fakturanın nömrəsi","Rayon", "Başlama Tarixi", "Bitmə Tarixi", "Kücə", "Mövzu", "Əlaqə Nömrəsi", "Reklam yayıcının adı", "Idarəçi","Neticə", "Qeyd",  "Debitor üzrə cəm borclar",
                 "2018", "2019", "2020", "2021","2022", "2023", "2024-1","2024-2","2024-3","2024-4","2024-5","2024-6","2024-7","2024-8","2024-9","2024-10","2024-11","2024-12","2025-1","2025-2","2025-3"
             };
 
@@ -149,12 +149,12 @@ public class CallService : ICallService
                     worksheet.Cells[row + 2, 3].Value = call.VOEN;
                     worksheet.Cells[row + 2, 4].Value = call.InvoiceNumber;
                     worksheet.Cells[row + 2, 5].Value = call.District;
-                    worksheet.Cells[row + 2, 8].Value = call.PermissionStartDate?.ToString();
-                    worksheet.Cells[row + 2, 9].Value = call.PermissionEndDate?.ToString();
-                    worksheet.Cells[row + 2, 9].Value = call.Street;
-                    worksheet.Cells[row + 2, 10].Value = call.Subject;
+                    worksheet.Cells[row + 2, 6].Value = call.PermissionStartDate?.ToString();
+                    worksheet.Cells[row + 2, 7].Value = call.PermissionEndDate?.ToString();
+                    worksheet.Cells[row + 2, 8].Value = call.Street;
+                    worksheet.Cells[row + 2, 9].Value = call.Subject;
                     worksheet.Cells[row + 2, 11].Value = call.LegalName;
-                    worksheet.Cells[row + 2, 11].Value = call.Phone;
+                    worksheet.Cells[row + 2, 10].Value = call.Phone;
                     worksheet.Cells[row + 2, 12].Value = user?.FullName;
                     worksheet.Cells[row + 2, 13].Value = call.Conclusion?.ToString();
                     worksheet.Cells[row + 2, 14].Value = call.Note;
@@ -421,10 +421,10 @@ public class CallService : ICallService
     }
 
 
-    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser(long userId, int pageNumber, int pageSize)
+    public async Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser(long userId, long kanalId, int pageNumber, int pageSize)
     {
         var calls = await _db.Calls
-            .Where(x => x.ExcludedBy == userId && !x.isDeleted)
+            .Where(x => x.ExcludedBy == userId && !x.isDeleted && x.KanalId == kanalId)
             .Skip((pageNumber - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync();
@@ -561,18 +561,95 @@ public class CallService : ICallService
     public async Task<BaseResponse<ICollection<GetCallDto>>> GetRandomCallsByVoen(long kanalId)
     {
         ICollection<GetCallDto> cachedCalls;
+
         if (!_memoryCache.TryGetValue("RandomCalls", out cachedCalls) || !cachedCalls.Any())
         {
             var thresholdDate = DateTime.Now;
 
-            var calls = await _db.Calls
-                .Where(x => !x.isDeleted && x.KanalId == kanalId && (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate))
+            var prioritizedCalls = await _db.Calls
+                .Where(x => !x.isDeleted &&
+                            x.KanalId == kanalId &&
+                            (x.NextCall == null || x.NextCall <= thresholdDate))
                 .ToListAsync();
 
-            if (!calls.Any())
+            if (prioritizedCalls.Any())
+            {
+                var nextCallDebtor = prioritizedCalls
+                    .Where(call =>
+                        call.NextCall.HasValue &&
+                        call.NextCall < DateTime.Now && 
+                        call.Conclusion == CallResult.YenidənZəng)
+                    .OrderBy(call => call.NextCall)
+                    .FirstOrDefault();
+
+
+                if (nextCallDebtor != null)
+                {
+                    cachedCalls = new List<GetCallDto>
+                {
+                    new GetCallDto
+                    {
+                        Id = nextCallDebtor.id,
+                        VOEN = nextCallDebtor.VOEN,
+                        InvoiceNumber = nextCallDebtor.InvoiceNumber,
+                        Subject = nextCallDebtor.Subject,
+                        District = nextCallDebtor.District,
+                        PermissionStartDate = nextCallDebtor.PermissionStartDate,
+                        PermissionEndDate = nextCallDebtor.PermissionEndDate,
+                        Street = nextCallDebtor.Street,
+                        Phone = nextCallDebtor.Phone,
+                        LegalName = nextCallDebtor.LegalName,
+                        TotalDebt = nextCallDebtor.TotalDebt,
+                        Year2018 = nextCallDebtor.Year2018,
+                        Year2019 = nextCallDebtor.Year2019,
+                        Year2020 = nextCallDebtor.Year2020,
+                        Year2021 = nextCallDebtor.Year2021,
+                        Year2022 = nextCallDebtor.Year2022,
+                        Year2023 = nextCallDebtor.Year2023,
+                        Month1_2024 = nextCallDebtor.Month1_2024,
+                        Month2_2024 = nextCallDebtor.Month2_2024,
+                        Month3_2024 = nextCallDebtor.Month3_2024,
+                        Month4_2024 = nextCallDebtor.Month4_2024,
+                        Month5_2024 = nextCallDebtor.Month5_2024,
+                        Month6_2024 = nextCallDebtor.Month6_2024,
+                        Month7_2024 = nextCallDebtor.Month7_2024,
+                        Month8_2024 = nextCallDebtor.Month8_2024,
+                        Month9_2024 = nextCallDebtor.Month9_2024,
+                        Month10_2024 = nextCallDebtor.Month10_2024,
+                        Month11_2024 = nextCallDebtor.Month11_2024,
+                        Month12_2024 = nextCallDebtor.Month12_2024,
+                        Month1_2025 = nextCallDebtor.Month1_2025,
+                        Month2_2025 = nextCallDebtor.Month2_2025,
+                        Month3_2025 = nextCallDebtor.Month3_2025,
+                        KanalId = nextCallDebtor.KanalId,
+                        Status = nextCallDebtor.Status.ToString(),
+                        
+                        Conclusion = nextCallDebtor.Conclusion.ToString(),
+                        ExcludedBy = nextCallDebtor.ExcludedBy,
+                        NextCall = nextCallDebtor.NextCall,
+                        Note = nextCallDebtor.Note,
+                        LastStatusUpdate = nextCallDebtor.LastStatusUpdate,
+                        CreateAt = nextCallDebtor.CreateAt,
+                        
+                    }
+                };
+
+                    _memoryCache.Set("RandomCalls", cachedCalls);
+                    return new BaseResponse<ICollection<GetCallDto>>(cachedCalls);
+                }
+            }
+
+            // Random selection fallback
+            var fallbackCalls = await _db.Calls
+                .Where(x => !x.isDeleted &&
+                            x.KanalId == kanalId &&
+                            (x.LastStatusUpdate == null || x.LastStatusUpdate <= thresholdDate))
+                .ToListAsync();
+
+            if (!fallbackCalls.Any())
                 return new BaseResponse<ICollection<GetCallDto>>(null, false, "No eligible calls available.");
 
-            var groupedByVoen = calls.GroupBy(x => x.VOEN).ToList();
+            var groupedByVoen = fallbackCalls.GroupBy(x => x.VOEN).ToList();
 
             var random = new Random();
             var randomVoenGroup = groupedByVoen.OrderBy(_ => random.Next()).FirstOrDefault();
@@ -857,7 +934,7 @@ public class CallService : ICallService
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать причину повторного звонка.");
                 if (!dto.NextCall.HasValue)
                     return new BaseResponse<GetCallDto>(null, false, "Необходимо указать дату и время повторного звонка.");
-                call.NextCall = dto.NextCall.Value;
+                call.NextCall = dto.NextCall.Value.AddHours(4);
                 call.Note = dto.Note;
                 break;
 

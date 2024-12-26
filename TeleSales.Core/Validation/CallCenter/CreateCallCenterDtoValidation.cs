@@ -43,14 +43,9 @@ public class CreateCallCenterDtoValidation : AbstractValidator<CreateCallCenterD
         RuleFor(x => x.Forwarding)
             .NotNull().WithMessage("Forwarding must be specified.");
 
-        RuleFor(x => x.Administration)
-            .NotNull().WithMessage("Administration must be specified.");
-
         RuleFor(x => x.Department)
             .NotNull().WithMessage("Department must be specified.");
 
-        RuleFor(x => x.ForwardTo)
-            .NotNull().When(x => x.Forwarding).WithMessage("ForwardTo is required if Forwarding is true.");
 
         RuleFor(x => x.Conclusion)
             .NotEmpty().WithMessage("Conclusion is required.")

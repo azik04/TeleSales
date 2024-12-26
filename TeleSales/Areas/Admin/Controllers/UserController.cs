@@ -2,17 +2,18 @@
 using Microsoft.AspNetCore.Mvc;
 using TeleSales.Core.Dto.User;
 using TeleSales.Core.Interfaces.User;
+using TeleSales.DataProvider.Enums;
 
 namespace TeleSales.Areas.Admin.Controllers;
 
 [Route("api/Admin/[controller]")]
 [ApiController]
 [Area("Admin")]
-public class AdminController : ControllerBase
+public class UserController : ControllerBase
 {
     private readonly IUserService _service;
 
-    public AdminController(IUserService service)
+    public UserController(IUserService service)
     {
         _service = service;
     }
@@ -70,15 +71,64 @@ public class AdminController : ControllerBase
 
 
     /// <summary>
+    /// Get all User Users
+    /// </summary>
+    /// <returns>A response with a list of all Users or an error message</returns>
+    [HttpGet()]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> GetAll()
+    {
+        var res = await _service.GetAll();
+        if (!res.Success)
+            return BadRequest(res.Message);
+
+        return Ok(res);
+    }
+
+
+    /// <summary>
+    /// Get all Viewer Users
+    /// </summary>
+    /// <returns>A response with a list of all Users or an error message</returns>
+    [HttpGet("Viewer")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> GetAllViewer()
+    {
+        var res = await _service.GetAllViewer();
+        if (!res.Success)
+            return BadRequest(res.Message);
+
+        return Ok(res);
+    }
+
+
+
+    /// <summary>
+    /// Get all BasOperator Users
+    /// </summary>
+    /// <returns>A response with a list of all Users or an error message</returns>
+    [HttpGet("BasOperator")]
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> GetAllBasOperator()
+    {
+        var res = await _service.GetAllBasOperator();
+        if (!res.Success)
+            return BadRequest(res.Message);
+
+        return Ok(res);
+    }
+
+
+    /// <summary>
     /// Change a Users Role by its ID
     /// </summary>
     /// <param name="id">The ID of the User to update</param>
     /// <returns>A response with the updated Users Role or an error message</returns>
     [HttpPut("{id}/Role")]
-    [Authorize(Policy = "User")]
-    public async Task<IActionResult> Role(long id)
+    [Authorize(Policy = "Admin")]
+    public async Task<IActionResult> Role(long id , Role role)
     {
-        var res = await _service.ChangeRole(id);
+        var res = await _service.ChangeRole(id , role);
         if (!res.Success)
             return BadRequest(res.Message);
 

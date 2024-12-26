@@ -19,7 +19,7 @@ public class GetCallCenterDto
     public bool Forwarding { get; set; }
     public string? Administration { get; set; }
     public string? Department { get; set; }
-    public long? ForwardTo { get; set; }
+    public string? ForwardTo { get; set; }
     public string Conclusion { get; set; }
     public string? Addition { get; set; }
     public long kanalId { get; set; }

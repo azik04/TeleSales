@@ -8,7 +8,7 @@ public interface ICallService
     Task<BaseResponse<bool>> ImportFromExcelAsync(Stream excelFileStream, long kanalId);
     Task<byte[]> ExportToExcelAsync(long kanalId);
     Task<BaseResponse<GetCallDto>> Create(CreateCallDto dto);
-    Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser(long userId, int pageNumber, int pageSize);
+    Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllByUser(long userId, long kanalId, int pageNumber, int pageSize);
     Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllNotExcluded(long kanalId, int pageNumber, int pageSize);
     Task<BaseResponse<PagedResponse<GetCallDto>>> GetAllExcluded(long kanalId, int pageNumber, int pageSize);
     Task<BaseResponse<ICollection<GetCallDto>>> GetRandomCallsByVoen(long kanalId);

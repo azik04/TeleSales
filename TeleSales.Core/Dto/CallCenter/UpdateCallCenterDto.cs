@@ -15,7 +15,7 @@ public class UpdateCallCenterDto
     public bool Forwarding { get; set; }
     public Administration? Administration { get; set; }
     public Department? Department { get; set; }
-    public long? ForwardTo { get; set; }
+    public string? ForwardTo { get; set; }
     public string Conclusion { get; set; }
     public string? Addition { get; set; }
 }

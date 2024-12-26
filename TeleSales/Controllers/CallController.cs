@@ -90,12 +90,12 @@ public class CallController : ControllerBase
     /// <param name="pageNumber">The page number for pagination</param>
     /// <param name="pageSize">The number of records per page</param>
     /// <returns>A paginated list of calls by channel and user</returns>
-    [HttpGet("User/{userId}")]
+    [HttpGet("User/{userId}/Kanal/{kanalId}")]
     [Authorize(Policy = "Operator")]
 
-    public async Task<IActionResult> GetAllByUser(long userId, int pageNumber, int pageSize)
+    public async Task<IActionResult> GetAllByUser(long userId, long kanalId, int pageNumber, int pageSize)
     {
-        var res = await _service.GetAllByUser(userId, pageNumber, pageSize);
+        var res = await _service.GetAllByUser(userId, kanalId , pageNumber, pageSize);
         if (!res.Success)
             return BadRequest(res.Message);
 
